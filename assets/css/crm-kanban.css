@@ -1,0 +1,427 @@
+/* infiCRM Kanban Pipeline — desktop + mobile */
+
+body.crm-theme.crm-kanban-page .page-content {
+    padding-bottom: 8px !important;
+}
+
+body.crm-theme .crm-kanban-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+body.crm-theme .crm-kanban-toolbar .crm-kanban-filter {
+    flex: 1 1 220px;
+    min-width: 0;
+    max-width: 360px;
+}
+
+body.crm-theme .crm-kanban-toolbar .crm-kanban-toolbar-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 1px;
+}
+
+body.crm-theme .crm-kanban-toolbar label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #4c4585;
+}
+
+body.crm-theme .crm-kanban-board-wrap {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 12px;
+    margin: 0 -4px;
+    padding-left: 4px;
+    padding-right: 4px;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+}
+
+body.crm-theme .crm-kanban-board {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 16px;
+    min-height: 420px;
+    align-items: flex-start;
+    width: max-content;
+    min-width: 100%;
+    padding-bottom: 4px;
+}
+
+body.crm-theme .crm-kanban-loading,
+body.crm-theme .crm-kanban-empty {
+    width: 100%;
+    min-width: min(100%, 280px);
+    text-align: center;
+    padding: 48px 16px;
+    color: #8b85a8;
+    font-size: 15px;
+}
+
+body.crm-theme .crm-kanban-column {
+    flex: 0 0 280px;
+    max-width: 280px;
+    min-width: 280px;
+    background: #f8f6fc;
+    border: 1px solid #e8e4f3;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 220px);
+    scroll-snap-align: start;
+}
+
+body.crm-theme .crm-kanban-column-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 12px 14px;
+    font-weight: 600;
+    font-size: 14px;
+    color: #fff;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+body.crm-theme .crm-kanban-column-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.crm-theme .crm-kanban-column-head--0 { background: linear-gradient(135deg, #9333ea, #7c3aed); }
+body.crm-theme .crm-kanban-column-head--1 { background: linear-gradient(135deg, #059669, #047857); }
+body.crm-theme .crm-kanban-column-head--2 { background: linear-gradient(135deg, #d97706, #b45309); }
+body.crm-theme .crm-kanban-column-head--3 { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+body.crm-theme .crm-kanban-column-head--4 { background: linear-gradient(135deg, #db2777, #be185d); }
+body.crm-theme .crm-kanban-column-head--5 { background: linear-gradient(135deg, #0891b2, #0e7490); }
+body.crm-theme .crm-kanban-column-head--6 { background: linear-gradient(135deg, #4f46e5, #4338ca); }
+body.crm-theme .crm-kanban-column-head--7 { background: linear-gradient(135deg, #64748b, #475569); }
+
+body.crm-theme .crm-kanban-column-count {
+    flex-shrink: 0;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.22);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+}
+
+body.crm-theme .crm-kanban-column-body {
+    min-height: 120px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    flex: 1 1 auto;
+}
+
+body.crm-theme .crm-kanban-card {
+    position: relative;
+    background: #ffffff;
+    border: 1px solid #e8e4f3;
+    border-radius: 10px;
+    padding: 12px;
+    padding-right: 34px;
+    cursor: grab;
+    box-shadow: 0 1px 3px rgba(30, 27, 75, 0.06);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+body.crm-theme .crm-kanban-card:hover {
+    box-shadow: 0 4px 14px rgba(30, 27, 75, 0.1);
+}
+
+body.crm-theme .crm-kanban-card-delete {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+body.crm-theme .crm-kanban-card-delete:hover,
+body.crm-theme .crm-kanban-card-delete:focus-visible {
+    background: #dc2626;
+    color: #ffffff;
+    outline: none;
+    transform: scale(1.08);
+}
+
+body.crm-theme .crm-kanban-card-ghost { opacity: 0.45; }
+body.crm-theme .crm-kanban-card-drag { cursor: grabbing; transform: rotate(1deg); }
+
+body.crm-theme .crm-kanban-card--high { border-left: 3px solid #dc2626; }
+body.crm-theme .crm-kanban-card--medium { border-left: 3px solid #d97706; }
+body.crm-theme .crm-kanban-card--low { border-left: 3px solid #059669; }
+
+body.crm-theme .crm-kanban-card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e1b4b;
+    margin-bottom: 4px;
+    word-break: break-word;
+}
+
+body.crm-theme .crm-kanban-card-sub {
+    font-size: 12px;
+    color: #4c4585;
+    margin-bottom: 8px;
+    word-break: break-word;
+}
+
+body.crm-theme .crm-kanban-card-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11px;
+    color: #8b85a8;
+    margin-bottom: 8px;
+}
+
+body.crm-theme .crm-kanban-card-meta span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    word-break: break-word;
+}
+
+body.crm-theme .crm-kanban-card-rate {
+    font-size: 12px;
+    font-weight: 600;
+    color: #047857;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+body.crm-theme .crm-kanban-card-priority {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #f5f0fe;
+    color: #9333ea;
+}
+
+body.crm-theme .crm-kanban-card-assignee {
+    margin-top: 8px;
+    font-size: 11px;
+    color: #8b85a8;
+    word-break: break-word;
+}
+
+body.crm-theme .crm-kanban-hint {
+    display: none;
+    font-size: 12px;
+    color: #8b85a8;
+    margin: -8px 0 12px;
+}
+
+/* ---- Tablet ---- */
+@media (max-width: 991.98px) {
+    body.crm-theme.crm-kanban-page .page-content {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    body.crm-theme .crm-kanban-column {
+        flex: 0 0 270px;
+        max-width: 270px;
+        min-width: 270px;
+        max-height: calc(100vh - 200px);
+    }
+
+    body.crm-theme .crm-kanban-board-wrap {
+        scroll-snap-type: x mandatory;
+    }
+
+    body.crm-theme .crm-kanban-column {
+        scroll-snap-align: center;
+    }
+}
+
+/* ---- Mobile phone ---- */
+@media (max-width: 767.98px) {
+    body.crm-theme.crm-kanban-page .footer {
+        display: none;
+    }
+
+    body.crm-theme.crm-kanban-page .crm-dash-hero {
+        padding: 14px 14px;
+        margin-bottom: 12px;
+        gap: 10px;
+    }
+
+    body.crm-theme.crm-kanban-page .crm-dash-hero h2 {
+        font-size: 18px;
+        margin-bottom: 4px;
+    }
+
+    body.crm-theme.crm-kanban-page .crm-dash-hero p {
+        font-size: 12px;
+        margin-bottom: 0;
+        display: none;
+    }
+
+    body.crm-theme.crm-kanban-page .crm-dash-hero-meta {
+        width: 100%;
+    }
+
+    body.crm-theme.crm-kanban-page .crm-dash-hero-meta .btn {
+        width: 100%;
+    }
+
+    body.crm-theme .crm-kanban-hint {
+        display: block;
+    }
+
+    body.crm-theme .crm-kanban-toolbar {
+        position: sticky;
+        top: 56px;
+        z-index: 20;
+        background: #fff;
+        padding: 10px 0 12px;
+        margin: 0 0 8px;
+        border-bottom: 1px solid #e8e4f3;
+        gap: 8px;
+    }
+
+    body.crm-theme .crm-kanban-toolbar .crm-kanban-filter {
+        flex: 1 1 100%;
+        max-width: none;
+    }
+
+    body.crm-theme .crm-kanban-toolbar .form-select {
+        min-height: 42px;
+        font-size: 16px; /* prevents iOS zoom */
+    }
+
+    body.crm-theme .crm-kanban-board-wrap {
+        margin-left: -12px;
+        margin-right: -12px;
+        padding-left: 12px;
+        padding-right: 12px;
+        scroll-padding-left: 12px;
+        scroll-snap-type: x mandatory;
+    }
+
+    body.crm-theme .crm-kanban-board {
+        gap: 12px;
+        min-height: calc(100vh - 210px);
+        padding-right: 12px;
+    }
+
+    body.crm-theme .crm-kanban-column {
+        flex: 0 0 min(86vw, 300px);
+        max-width: min(86vw, 300px);
+        min-width: min(86vw, 300px);
+        max-height: calc(100vh - 210px);
+        scroll-snap-align: center;
+        border-radius: 14px;
+    }
+
+    body.crm-theme .crm-kanban-column-head {
+        padding: 14px 14px;
+        font-size: 13px;
+    }
+
+    body.crm-theme .crm-kanban-column-body {
+        padding: 10px;
+        gap: 8px;
+        padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    }
+
+    body.crm-theme .crm-kanban-card {
+        padding: 14px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(30, 27, 75, 0.08);
+    }
+
+    body.crm-theme .crm-kanban-card-title {
+        font-size: 15px;
+    }
+
+    body.crm-theme .crm-kanban-card-meta {
+        font-size: 12px;
+    }
+
+    body.crm-theme .crm-kanban-card-rate {
+        font-size: 13px;
+    }
+
+    body.crm-theme .crm-kanban-loading,
+    body.crm-theme .crm-kanban-empty {
+        min-width: 80vw;
+        padding: 36px 16px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 400px) {
+    body.crm-theme .crm-kanban-column {
+        flex: 0 0 88vw;
+        max-width: 88vw;
+        min-width: 88vw;
+        max-height: calc(100vh - 200px);
+    }
+
+    body.crm-theme.crm-kanban-page .crm-dash-hero h2 {
+        font-size: 16px;
+    }
+}
+
+/* Landscape phones */
+@media (max-width: 991.98px) and (orientation: landscape) {
+    body.crm-theme .crm-kanban-column {
+        max-height: calc(100vh - 140px);
+    }
+
+    body.crm-theme .crm-kanban-board {
+        min-height: calc(100vh - 140px);
+    }
+
+    body.crm-theme.crm-kanban-page .crm-dash-hero p,
+    body.crm-theme .crm-kanban-hint {
+        display: none;
+    }
+}

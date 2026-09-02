@@ -1,0 +1,216 @@
+/* ============================================================
+   Quotation list — card grid
+   ============================================================ */
+
+.crm-quote-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.crm-quote-search {
+    position: relative;
+    flex: 1 1 320px;
+    max-width: 420px;
+}
+
+.crm-quote-search i {
+    position: absolute;
+    top: 50%;
+    left: 12px;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 16px;
+    pointer-events: none;
+}
+
+.crm-quote-search .form-control {
+    padding-left: 36px;
+    border-radius: 999px;
+    border: 1px solid #e2e8f0;
+}
+
+.crm-quote-add-btn {
+    border-radius: 999px !important;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.crm-quote-card {
+    position: relative;
+    height: 100%;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    animation: crmDashFadeUp 0.4s ease both;
+}
+
+.crm-quote-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+}
+
+.crm-quote-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.crm-quote-no {
+    font-size: 16px;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.crm-quote-status-select {
+    appearance: none;
+    -webkit-appearance: none;
+    border: none;
+    border-radius: 999px;
+    padding: 5px 26px 5px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    background-repeat: no-repeat;
+    background-position: right 9px center;
+    background-size: 10px;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23000'%3e%3cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3e%3c/svg%3e");
+}
+
+.crm-quote-status-select[data-status="Draft"] { background-color: #fef3c7; color: #92400e; }
+.crm-quote-status-select[data-status="Sent"] { background-color: #dbeafe; color: #1e40af; }
+.crm-quote-status-select[data-status="Accepted"] { background-color: #dcfce7; color: #15803d; }
+.crm-quote-status-select[data-status="Rejected"] { background-color: #fee2e2; color: #b91c1c; }
+
+.crm-quote-client {
+    font-size: 16px;
+    font-weight: 700;
+    color: #2563eb;
+    text-decoration: none;
+}
+
+.crm-quote-client:hover {
+    text-decoration: underline;
+    color: #1d4ed8;
+}
+
+.crm-quote-location {
+    font-size: 13px;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.crm-quote-location i {
+    color: #94a3b8;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.crm-quote-metrics {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: #f1f5f9;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
+}
+
+.crm-quote-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.crm-quote-metric--end {
+    align-items: flex-end;
+    text-align: right;
+}
+
+.crm-quote-metric-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #94a3b8;
+}
+
+.crm-quote-metric-value {
+    font-size: 15px;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.crm-quote-actions {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding-top: 12px;
+    border-top: 1px solid #eef1f8;
+    margin-top: auto;
+}
+
+.crm-quote-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    background: none;
+    border: none;
+    padding: 0;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.crm-quote-action i {
+    font-size: 16px;
+}
+
+.crm-quote-action--edit { color: #2563eb; }
+.crm-quote-action--print { color: #475569; }
+.crm-quote-action--project { color: #7c3aed; }
+.crm-quote-action--delete { color: #dc2626; margin-left: auto; }
+
+.crm-quote-action:hover { opacity: 0.75; }
+
+/* Dark mode */
+body.crm-dark .crm-quote-search .form-control {
+    background: #111827;
+    border-color: rgba(255,255,255,0.1);
+    color: #e2e8f0;
+}
+
+body.crm-dark .crm-quote-card {
+    background: #111827;
+    border-color: rgba(255,255,255,0.07);
+}
+
+body.crm-dark .crm-quote-no { color: #f8fafc; }
+body.crm-dark .crm-quote-location { color: #94a3b8; }
+body.crm-dark .crm-quote-metrics { background: rgba(255,255,255,0.05); }
+body.crm-dark .crm-quote-metric-value { color: #f8fafc; }
+body.crm-dark .crm-quote-actions { border-top-color: rgba(255,255,255,0.08); }
+
+body.crm-dark .crm-quote-status-select[data-status="Draft"] { background-color: rgba(217,119,6,0.2); color: #fbbf24; }
+body.crm-dark .crm-quote-status-select[data-status="Sent"] { background-color: rgba(37,99,235,0.2); color: #93c5fd; }
+body.crm-dark .crm-quote-status-select[data-status="Accepted"] { background-color: rgba(22,163,74,0.2); color: #86efac; }
+body.crm-dark .crm-quote-status-select[data-status="Rejected"] { background-color: rgba(220,38,38,0.2); color: #fca5a5; }

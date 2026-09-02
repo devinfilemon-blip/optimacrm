@@ -1,0 +1,1285 @@
+﻿/* ============================================================
+   infiCRM â€” Dark Navy Theme (matching infiCRM promo design)
+   Applied via body.crm-dark class
+   ============================================================ */
+
+body.crm-dark {
+    /* ---- Core palette ---- */
+    --crm-primary: #f97316;
+    --crm-primary-hover: #ea6c0a;
+    --crm-primary-light: #fb923c;
+    --crm-primary-deep: #c2410c;
+    --crm-primary-soft: rgba(249,115,22,0.12);
+    --crm-primary-muted: rgba(249,115,22,0.08);
+    --crm-primary-rgb: 249, 115, 22;
+    --crm-primary-gradient: linear-gradient(135deg, #c2410c 0%, #f97316 55%, #fb923c 100%);
+    --crm-sidebar-active: linear-gradient(135deg, #ea580c 0%, #f97316 100%);
+    --crm-sidebar-active-hover: linear-gradient(135deg, #c2410c 0%, #ea6c0a 100%);
+    --crm-sidebar-active-soft: rgba(249,115,22,0.15);
+    --crm-sidebar-active-shadow: 0 4px 18px rgba(249,115,22,0.35), 0 2px 6px rgba(194,65,12,0.2);
+    --crm-success: #22c55e;
+    --crm-success-soft: rgba(34,197,94,0.12);
+    --crm-danger: #ef4444;
+    --crm-warning: #f59e0b;
+
+    /* ---- Surfaces ---- */
+    --crm-bg: #0b0f1e;
+    --crm-surface: #111827;
+    --crm-surface-2: #1a2236;
+    --crm-surface-3: #1e2d3d;
+
+    /* ---- Text ---- */
+    --crm-text: #ffffff;
+    --crm-text-secondary: #e2e8f0;
+    --crm-text-muted: #94a3b8;
+
+    /* ---- Borders & shadows ---- */
+    --crm-border: rgba(255,255,255,0.07);
+    --crm-border-light: rgba(255,255,255,0.04);
+    --crm-shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+    --crm-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    --crm-shadow-md: 0 4px 16px rgba(0,0,0,0.4);
+
+    --crm-radius: 10px;
+    --crm-radius-lg: 12px;
+    --crm-sidebar-width: 256px;
+    --crm-header-height: 64px;
+    --crm-transition: 0.2s ease;
+
+    background-color: var(--crm-bg) !important;
+    color: var(--crm-text);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================
+   HEADER / TOPBAR
+   ============================================================ */
+body.crm-dark #page-topbar {
+    background: #0f172a !important;
+    border-bottom: none !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important;
+}
+
+body.crm-dark .navbar-header {
+    background: transparent !important;
+}
+
+body.crm-dark #vertical-menu-btn {
+    border-color: var(--crm-border);
+    background: var(--crm-surface);
+    color: var(--crm-text-secondary);
+}
+
+body.crm-dark .crm-header-icon {
+    color: var(--crm-text-secondary);
+    background: transparent;
+}
+
+body.crm-dark .crm-header-icon:hover {
+    background: var(--crm-surface-2);
+    color: var(--crm-primary);
+}
+
+body.crm-dark .crm-user-btn {
+    background: var(--crm-surface-2);
+    border-color: var(--crm-border);
+}
+
+body.crm-dark .crm-user-btn:hover {
+    background: var(--crm-surface-3);
+}
+
+body.crm-dark .crm-user-avatar {
+    background: var(--crm-primary-gradient) !important;
+    color: #fff !important;
+}
+
+body.crm-dark .crm-user-name {
+    color: var(--crm-text) !important;
+}
+
+body.crm-dark .crm-user-role {
+    color: var(--crm-text-muted) !important;
+}
+
+body.crm-dark .crm-notif-badge {
+    background: var(--crm-primary) !important;
+}
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+body.crm-dark .vertical-menu {
+    background: linear-gradient(180deg, #0f172a 0%, #0d1526 100%) !important;
+    border-right: 1px solid var(--crm-border) !important;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.5) !important;
+}
+
+body.crm-dark .crm-sidebar-brand {
+    background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+    border-bottom: 1px solid var(--crm-border);
+}
+
+body.crm-dark #sidebar-menu ul li a {
+    color: #94a3b8 !important;
+}
+
+body.crm-dark #sidebar-menu ul li a:hover {
+    background: rgba(249,115,22,0.1) !important;
+    color: var(--crm-primary) !important;
+}
+
+body.crm-dark #sidebar-menu ul li a.active,
+body.crm-dark #sidebar-menu ul li.mm-active > a {
+    background: var(--crm-sidebar-active) !important;
+    color: #fff !important;
+    box-shadow: var(--crm-sidebar-active-shadow) !important;
+}
+
+body.crm-dark #sidebar-menu .menu-title {
+    color: #475569 !important;
+    letter-spacing: 0.08em;
+}
+
+body.crm-dark #sidebar-menu .sub-menu {
+    background: rgba(0,0,0,0.2) !important;
+}
+
+body.crm-dark #sidebar-menu .sub-menu li a {
+    color: #64748b !important;
+}
+
+body.crm-dark #sidebar-menu .sub-menu li a:hover,
+body.crm-dark #sidebar-menu .sub-menu li a.active {
+    color: var(--crm-primary) !important;
+    background: var(--crm-primary-soft) !important;
+}
+
+body.crm-dark .crm-sidebar-overlay {
+    background: rgba(0,0,0,0.65) !important;
+}
+
+/* ============================================================
+   MAIN CONTENT & PAGE
+   ============================================================ */
+body.crm-dark .main-content {
+    background: var(--crm-bg) !important;
+}
+
+body.crm-dark .page-content {
+    background: var(--crm-bg) !important;
+}
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+body.crm-dark .card {
+    background: var(--crm-surface) !important;
+    border: 1px solid var(--crm-border) !important;
+    box-shadow: var(--crm-shadow) !important;
+}
+
+body.crm-dark .card-header {
+    background: transparent !important;
+    border-bottom: 1px solid var(--crm-border) !important;
+    color: var(--crm-text) !important;
+}
+
+body.crm-dark .card-body {
+    color: var(--crm-text);
+}
+
+body.crm-dark .card-title,
+body.crm-dark .card-text {
+    color: var(--crm-text) !important;
+}
+
+/* ============================================================
+   STAT CARDS & DASHBOARD
+   ============================================================ */
+body.crm-dark .crm-stat-card {
+    background: var(--crm-surface) !important;
+    border: 1px solid var(--crm-border) !important;
+    box-shadow: 0 0 24px rgba(249,115,22,0.06) !important;
+}
+
+body.crm-dark .crm-stat-card .stat-value {
+    color: var(--crm-primary) !important;
+}
+
+body.crm-dark .crm-stat-card .stat-label {
+    color: var(--crm-text-secondary) !important;
+}
+
+body.crm-dark .crm-stat-icon {
+    background: var(--crm-primary-soft) !important;
+    color: var(--crm-primary) !important;
+}
+
+body.crm-dark .crm-panel-card,
+body.crm-dark .crm-chart-card {
+    background: var(--crm-surface) !important;
+    border: 1px solid var(--crm-border) !important;
+}
+
+body.crm-dark .crm-dash-hero {
+    background: linear-gradient(135deg, #111827 0%, #1a2236 55%, #0f1e2f 100%) !important;
+    border: 1px solid rgba(249,115,22,0.15) !important;
+    box-shadow: 0 0 40px rgba(249,115,22,0.08) !important;
+}
+
+body.crm-dark .crm-dash-hero h2 {
+    color: #fff !important;
+}
+
+body.crm-dark .crm-dash-hero p,
+body.crm-dark .crm-dash-greeting {
+    color: var(--crm-text-secondary) !important;
+}
+
+body.crm-dark .crm-dash-hero::before {
+    background: radial-gradient(circle, rgba(249,115,22,0.18) 0%, transparent 70%) !important;
+}
+
+body.crm-dark .crm-status-card {
+    background: var(--crm-surface-2) !important;
+    border: 1px solid var(--crm-border) !important;
+}
+
+body.crm-dark .crm-status-card:hover {
+    border-color: rgba(249,115,22,0.3) !important;
+    box-shadow: 0 6px 20px rgba(249,115,22,0.1) !important;
+}
+
+body.crm-dark .crm-status-label {
+    color: var(--crm-text-muted) !important;
+}
+
+/* Each status color â€” vivid in dark mode */
+body.crm-dark .crm-status-card--blue   { border-left-color: #6366f1 !important; }
+body.crm-dark .crm-status-card--blue .crm-status-icon  { background: rgba(99,102,241,0.15) !important; color: #818cf8 !important; }
+body.crm-dark .crm-status-card--blue .crm-status-count { color: #818cf8 !important; }
+
+body.crm-dark .crm-status-card--green  { border-left-color: #22c55e !important; }
+body.crm-dark .crm-status-card--green .crm-status-icon  { background: rgba(34,197,94,0.12) !important; color: #4ade80 !important; }
+body.crm-dark .crm-status-card--green .crm-status-count { color: #4ade80 !important; }
+
+body.crm-dark .crm-status-card--orange { border-left-color: #f97316 !important; }
+body.crm-dark .crm-status-card--orange .crm-status-icon  { background: rgba(249,115,22,0.12) !important; color: #fb923c !important; }
+body.crm-dark .crm-status-card--orange .crm-status-count { color: #fb923c !important; }
+
+body.crm-dark .crm-status-card--purple { border-left-color: #a855f7 !important; }
+body.crm-dark .crm-status-card--purple .crm-status-icon  { background: rgba(168,85,247,0.12) !important; color: #c084fc !important; }
+body.crm-dark .crm-status-card--purple .crm-status-count { color: #c084fc !important; }
+
+body.crm-dark .crm-status-card--teal   { border-left-color: #0ea5e9 !important; }
+body.crm-dark .crm-status-card--teal .crm-status-icon  { background: rgba(14,165,233,0.12) !important; color: #38bdf8 !important; }
+body.crm-dark .crm-status-card--teal .crm-status-count { color: #38bdf8 !important; }
+
+body.crm-dark .crm-status-card--rose   { border-left-color: #f43f5e !important; }
+body.crm-dark .crm-status-card--rose .crm-status-icon  { background: rgba(244,63,94,0.12) !important; color: #fb7185 !important; }
+body.crm-dark .crm-status-card--rose .crm-status-count { color: #fb7185 !important; }
+
+body.crm-dark .crm-status-card--indigo { border-left-color: #6366f1 !important; }
+body.crm-dark .crm-status-card--indigo .crm-status-icon  { background: rgba(99,102,241,0.12) !important; color: #a5b4fc !important; }
+body.crm-dark .crm-status-card--indigo .crm-status-count { color: #a5b4fc !important; }
+
+body.crm-dark .crm-status-card--amber  { border-left-color: #eab308 !important; }
+body.crm-dark .crm-status-card--amber .crm-status-icon  { background: rgba(234,179,8,0.12) !important; color: #fbbf24 !important; }
+body.crm-dark .crm-status-card--amber .crm-status-count { color: #fbbf24 !important; }
+
+/* Chart / panel cards */
+body.crm-dark .crm-chart-card-head h6,
+body.crm-dark .crm-panel-card-head h6 { color: var(--crm-text) !important; }
+
+body.crm-dark .crm-chart-card-head p,
+body.crm-dark .crm-panel-card-head p  { color: var(--crm-text-muted) !important; }
+
+/* Pipeline legend */
+body.crm-dark .crm-pipeline-legend-label { color: var(--crm-text-secondary) !important; }
+body.crm-dark .crm-pipeline-legend-count { color: var(--crm-text) !important; }
+
+/* ApexCharts dark fixes */
+body.crm-dark .apexcharts-canvas svg { background: transparent !important; }
+
+body.crm-dark .apexcharts-datalabel-value { fill: #ffffff !important; }
+body.crm-dark .apexcharts-datalabel-label { fill: #94a3b8 !important; }
+
+body.crm-dark .apexcharts-pie-label,
+body.crm-dark .apexcharts-donut-slice-dataLabel { fill: #ffffff !important; }
+
+body.crm-dark .apexcharts-tooltip {
+    background: #1a2236 !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    color: #ffffff !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+}
+
+body.crm-dark .apexcharts-tooltip-title {
+    background: #111827 !important;
+    border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+    color: #ffffff !important;
+}
+
+body.crm-dark .apexcharts-tooltip-text {
+    color: #cbd5e1 !important;
+}
+
+/* ============================================================
+   TABLES â€” full dark override (fixes white striped rows)
+   ============================================================ */
+body.crm-dark {
+    --bs-table-bg: #111827;
+    --bs-table-color: #ffffff;
+    --bs-table-border-color: rgba(255,255,255,0.07);
+    --bs-table-striped-bg: #1a2236;
+    --bs-table-striped-color: #ffffff;
+    --bs-table-hover-bg: rgba(249,115,22,0.08);
+    --bs-table-hover-color: #ffffff;
+    --bs-table-accent-bg: transparent;
+}
+
+body.crm-dark .table-responsive,
+body.crm-dark .page-content .table-responsive,
+body.crm-dark .crm-leads-table-wrap,
+body.crm-dark .dataTables_wrapper {
+    background: #111827 !important;
+    border-color: rgba(255,255,255,0.07) !important;
+    color: #ffffff !important;
+}
+
+body.crm-dark .table,
+body.crm-dark table.dataTable,
+body.crm-dark #datatable,
+body.crm-dark .table-striped,
+body.crm-dark .table-bordered {
+    background-color: #111827 !important;
+    color: #ffffff !important;
+    --bs-table-bg: #111827 !important;
+    --bs-table-color: #ffffff !important;
+    --bs-table-striped-bg: #1a2236 !important;
+    --bs-table-striped-color: #ffffff !important;
+    --bs-table-hover-bg: rgba(249,115,22,0.08) !important;
+    --bs-table-accent-bg: transparent !important;
+}
+
+body.crm-dark .table thead th,
+body.crm-dark table.dataTable thead th,
+body.crm-dark #datatable thead th {
+    background: #0f172a !important;
+    color: #94a3b8 !important;
+    border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+    border-top: none !important;
+    border-color: rgba(255,255,255,0.08) !important;
+}
+
+body.crm-dark .table tbody tr,
+body.crm-dark table.dataTable tbody tr,
+body.crm-dark #datatable tbody tr,
+body.crm-dark .table-striped > tbody > tr,
+body.crm-dark table.dataTable tbody tr.odd,
+body.crm-dark table.dataTable tbody tr.even {
+    background-color: #111827 !important;
+    background: #111827 !important;
+    color: #ffffff !important;
+}
+
+/* Alternating rows â€” dark navy, never white */
+body.crm-dark .table-striped > tbody > tr:nth-of-type(odd),
+body.crm-dark .table-striped > tbody > tr:nth-of-type(odd) > *,
+body.crm-dark table.dataTable tbody tr.odd,
+body.crm-dark table.dataTable tbody tr.odd > td,
+body.crm-dark #datatable tbody tr:nth-child(odd),
+body.crm-dark #datatable tbody tr:nth-child(odd) > td {
+    background-color: #1a2236 !important;
+    background: #1a2236 !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+    --bs-table-accent-bg: transparent !important;
+}
+
+body.crm-dark .table-striped > tbody > tr:nth-of-type(even),
+body.crm-dark .table-striped > tbody > tr:nth-of-type(even) > *,
+body.crm-dark table.dataTable tbody tr.even,
+body.crm-dark table.dataTable tbody tr.even > td,
+body.crm-dark #datatable tbody tr:nth-child(even),
+body.crm-dark #datatable tbody tr:nth-child(even) > td {
+    background-color: #111827 !important;
+    background: #111827 !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+    --bs-table-accent-bg: transparent !important;
+}
+
+body.crm-dark .table td,
+body.crm-dark .table th,
+body.crm-dark table.dataTable td,
+body.crm-dark table.dataTable th,
+body.crm-dark #datatable td,
+body.crm-dark #datatable th {
+    border-color: rgba(255,255,255,0.07) !important;
+    color: #ffffff !important;
+    background-color: inherit !important;
+}
+
+/* DataTables sorting column highlight */
+body.crm-dark table.dataTable tbody tr td.sorting_1,
+body.crm-dark table.dataTable tbody tr td.sorting_2,
+body.crm-dark table.dataTable tbody tr td.sorting_3,
+body.crm-dark table.dataTable.display tbody tr.odd > .sorting_1,
+body.crm-dark table.dataTable.order-column.stripe tbody tr.odd > .sorting_1 {
+    background-color: inherit !important;
+    background: inherit !important;
+}
+
+body.crm-dark .table tbody tr:hover,
+body.crm-dark .table tbody tr:hover > *,
+body.crm-dark table.dataTable tbody tr:hover,
+body.crm-dark table.dataTable tbody tr:hover > td,
+body.crm-dark #datatable tbody tr:hover,
+body.crm-dark #datatable tbody tr:hover > td {
+    background-color: rgba(249,115,22,0.1) !important;
+    background: rgba(249,115,22,0.1) !important;
+    color: #ffffff !important;
+}
+
+body.crm-dark .table-bordered,
+body.crm-dark .table-bordered td,
+body.crm-dark .table-bordered th {
+    border-color: rgba(255,255,255,0.07) !important;
+}
+
+body.crm-dark .dataTables_filter input,
+body.crm-dark .dataTables_length select {
+    background: #1a2236 !important;
+    border-color: rgba(255,255,255,0.1) !important;
+    color: #ffffff !important;
+}
+
+body.crm-dark .dataTables_info,
+body.crm-dark .dataTables_length label,
+body.crm-dark .dataTables_filter label {
+    color: #94a3b8 !important;
+}
+
+body.crm-dark .page-link {
+    background: #1a2236 !important;
+    border-color: rgba(255,255,255,0.1) !important;
+    color: #cbd5e1 !important;
+}
+
+body.crm-dark .page-item.active .page-link {
+    background: var(--crm-primary-gradient) !important;
+    border-color: var(--crm-primary) !important;
+    color: #fff !important;
+}
+
+body.crm-dark .page-item.disabled .page-link {
+    background: #111827 !important;
+    color: #64748b !important;
+}
+
+/* Badges / muted text inside tables */
+body.crm-dark .table .text-muted,
+body.crm-dark #datatable .text-muted {
+    color: #94a3b8 !important;
+}
+
+body.crm-dark .table a:not(.btn),
+body.crm-dark #datatable a:not(.btn) {
+    color: #fb923c !important;
+}
+
+/* ============================================================
+   FORMS
+   ============================================================ */
+body.crm-dark .form-control,
+body.crm-dark .form-select {
+    background: var(--crm-surface-2) !important;
+    border: 1px solid var(--crm-border) !important;
+    color: var(--crm-text) !important;
+}
+
+body.crm-dark .form-control:focus,
+body.crm-dark .form-select:focus {
+    background: var(--crm-surface-3) !important;
+    border-color: var(--crm-primary) !important;
+    box-shadow: 0 0 0 3px rgba(249,115,22,0.18) !important;
+    color: var(--crm-text) !important;
+}
+
+body.crm-dark .form-control::placeholder {
+    color: var(--crm-text-muted) !important;
+}
+
+body.crm-dark .form-label {
+    color: var(--crm-text-secondary) !important;
+}
+
+body.crm-dark .input-group-text {
+    background: var(--crm-surface-3) !important;
+    border-color: var(--crm-border) !important;
+    color: var(--crm-text-secondary) !important;
+}
+
+/* Select2 â€” closed field */
+body.crm-dark .select2-container--default .select2-selection--single,
+body.crm-dark .select2-container--default .select2-selection--multiple {
+    background: #1a2236 !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    color: #ffffff !important;
+    min-height: 38px;
+}
+
+body.crm-dark .select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: #ffffff !important;
+    line-height: 36px !important;
+}
+
+body.crm-dark .select2-container--default .select2-selection--single .select2-selection__placeholder {
+    color: #64748b !important;
+}
+
+body.crm-dark .select2-container--default .select2-selection--single .select2-selection__arrow b {
+    border-color: #94a3b8 transparent transparent transparent !important;
+}
+
+body.crm-dark .select2-container--default.select2-container--open .select2-selection--single .select2-selection__arrow b {
+    border-color: transparent transparent #94a3b8 transparent !important;
+}
+
+body.crm-dark .select2-container--default .select2-selection--multiple .select2-selection__choice {
+    background: #0f172a !important;
+    border-color: rgba(255,255,255,0.12) !important;
+    color: #ffffff !important;
+}
+
+/* Select2 â€” open dropdown (appended to body) */
+body.crm-dark .select2-dropdown,
+body.crm-dark .select2-container--open .select2-dropdown {
+    background: #1a2236 !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    color: #ffffff !important;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.45) !important;
+}
+
+body.crm-dark .select2-search--dropdown,
+body.crm-dark .select2-container--default .select2-search--dropdown {
+    background: #111827 !important;
+    padding: 8px !important;
+    border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+}
+
+body.crm-dark .select2-search--dropdown .select2-search__field,
+body.crm-dark .select2-container--default .select2-search--dropdown .select2-search__field {
+    background: #0f172a !important;
+    border: 1px solid rgba(255,255,255,0.14) !important;
+    color: #ffffff !important;
+    outline: none !important;
+    border-radius: 8px !important;
+    padding: 8px 10px !important;
+}
+
+body.crm-dark .select2-results,
+body.crm-dark .select2-results__options {
+    background: #1a2236 !important;
+}
+
+body.crm-dark .select2-container--default .select2-results__option {
+    background: transparent !important;
+    color: #e2e8f0 !important;
+    padding: 8px 12px !important;
+}
+
+body.crm-dark .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable,
+body.crm-dark .select2-container--default .select2-results__option--highlighted {
+    background: rgba(249,115,22,0.18) !important;
+    color: #fb923c !important;
+}
+
+body.crm-dark .select2-container--default .select2-results__option--selected,
+body.crm-dark .select2-container--default .select2-results__option[aria-selected="true"] {
+    background: #0f172a !important;
+    color: #fb923c !important;
+}
+
+body.crm-dark .select2-container--default .select2-results__option--disabled {
+    color: #64748b !important;
+}
+
+body.crm-dark .select2-container--default .select2-results__message {
+    color: #94a3b8 !important;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+body.crm-dark .btn-primary {
+    background: var(--crm-primary-gradient) !important;
+    border-color: var(--crm-primary) !important;
+    color: #fff !important;
+    box-shadow: 0 4px 14px rgba(249,115,22,0.3) !important;
+}
+
+body.crm-dark .btn-primary:hover {
+    background: linear-gradient(135deg, #c2410c 0%, #ea6c0a 100%) !important;
+    box-shadow: 0 4px 20px rgba(249,115,22,0.45) !important;
+}
+
+body.crm-dark .btn-outline-primary {
+    border-color: var(--crm-primary) !important;
+    color: var(--crm-primary) !important;
+    background: transparent !important;
+}
+
+body.crm-dark .btn-outline-primary:hover {
+    background: var(--crm-primary-soft) !important;
+}
+
+body.crm-dark .btn-light,
+body.crm-dark .btn-outline-secondary {
+    background: var(--crm-surface-2) !important;
+    border-color: var(--crm-border) !important;
+    color: var(--crm-text-secondary) !important;
+}
+
+body.crm-dark .btn-success {
+    background: #16a34a !important;
+    border-color: #16a34a !important;
+}
+
+body.crm-dark .btn-danger {
+    background: #dc2626 !important;
+    border-color: #dc2626 !important;
+}
+
+body.crm-dark .btn-info {
+    background: #0284c7 !important;
+    border-color: #0284c7 !important;
+    color: #fff !important;
+}
+
+/* ============================================================
+   PAGE TITLE, BREADCRUMBS
+   ============================================================ */
+body.crm-dark .page-title-box h4 {
+    color: var(--crm-text) !important;
+}
+
+body.crm-dark .breadcrumb-item a {
+    color: var(--crm-text-muted) !important;
+}
+
+body.crm-dark .breadcrumb-item.active {
+    color: var(--crm-text-secondary) !important;
+}
+
+body.crm-dark .breadcrumb-item + .breadcrumb-item::before {
+    color: var(--crm-text-muted) !important;
+}
+
+/* ============================================================
+   KANBAN BOARD
+   ============================================================ */
+body.crm-dark .crm-kanban-column {
+    background: var(--crm-surface) !important;
+    border: 1px solid var(--crm-border) !important;
+}
+
+body.crm-dark .crm-kanban-card {
+    background: var(--crm-surface-2) !important;
+    border: 1px solid var(--crm-border) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+}
+
+body.crm-dark .crm-kanban-card:hover {
+    box-shadow: 0 4px 16px rgba(249,115,22,0.15) !important;
+    border-color: rgba(249,115,22,0.25) !important;
+}
+
+body.crm-dark .crm-kanban-card-title {
+    color: var(--crm-text) !important;
+}
+
+body.crm-dark .crm-kanban-card-sub {
+    color: var(--crm-text-secondary) !important;
+}
+
+body.crm-dark .crm-kanban-card-meta {
+    color: var(--crm-text-muted) !important;
+}
+
+body.crm-dark .crm-kanban-card-rate {
+    color: var(--crm-primary) !important;
+}
+
+body.crm-dark .crm-kanban-card-priority {
+    background: rgba(249,115,22,0.12) !important;
+    color: var(--crm-primary) !important;
+}
+
+body.crm-dark .crm-kanban-card-assignee {
+    color: var(--crm-text-muted) !important;
+}
+
+body.crm-dark .crm-kanban-toolbar {
+    background: var(--crm-surface) !important;
+    border: 1px solid var(--crm-border) !important;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+}
+
+body.crm-dark .crm-kanban-toolbar label {
+    color: var(--crm-text-secondary) !important;
+}
+
+/* ============================================================
+   MODALS
+   ============================================================ */
+body.crm-dark .modal-content {
+    background: var(--crm-surface) !important;
+    border: 1px solid var(--crm-border) !important;
+}
+
+body.crm-dark .modal-header {
+    border-bottom: 1px solid var(--crm-border) !important;
+    background: var(--crm-surface-2) !important;
+}
+
+body.crm-dark .modal-header .modal-title {
+    color: var(--crm-text) !important;
+}
+
+body.crm-dark .modal-footer {
+    border-top: 1px solid var(--crm-border) !important;
+    background: var(--crm-surface-2) !important;
+}
+
+body.crm-dark .modal-body {
+    background: var(--crm-surface) !important;
+    color: var(--crm-text) !important;
+}
+
+body.crm-dark .btn-close {
+    filter: invert(1);
+}
+
+/* ============================================================
+   DROPDOWNS
+   ============================================================ */
+body.crm-dark .dropdown-menu {
+    background: var(--crm-surface-2) !important;
+    border: 1px solid var(--crm-border) !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+}
+
+body.crm-dark .dropdown-item {
+    color: var(--crm-text-secondary) !important;
+}
+
+body.crm-dark .dropdown-item:hover {
+    background: var(--crm-surface-3) !important;
+    color: var(--crm-text) !important;
+}
+
+body.crm-dark .dropdown-divider {
+    border-color: var(--crm-border) !important;
+}
+
+/* ============================================================
+   ALERTS & BADGES
+   ============================================================ */
+body.crm-dark .alert-info {
+    background: rgba(2,132,199,0.15) !important;
+    border-color: rgba(2,132,199,0.25) !important;
+    color: #7dd3fc !important;
+}
+
+body.crm-dark .alert-success {
+    background: rgba(34,197,94,0.1) !important;
+    border-color: rgba(34,197,94,0.2) !important;
+    color: #86efac !important;
+}
+
+body.crm-dark .alert-danger {
+    background: rgba(239,68,68,0.12) !important;
+    border-color: rgba(239,68,68,0.2) !important;
+    color: #fca5a5 !important;
+}
+
+body.crm-dark .badge {
+    color: #fff !important;
+}
+
+body.crm-dark .crm-badge--status {
+    background: var(--crm-primary-soft) !important;
+    color: var(--crm-primary) !important;
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+body.crm-dark .footer {
+    background: #0f172a !important;
+    border-top: 1px solid var(--crm-border) !important;
+    color: var(--crm-text-muted) !important;
+}
+
+/* ============================================================
+   SEARCH BAR
+   ============================================================ */
+body.crm-dark .crm-header-search {
+    background: #0f172a !important;
+}
+
+body.crm-dark .crm-search-wrap {
+    background: var(--crm-surface-2) !important;
+    border: 1px solid var(--crm-border) !important;
+}
+
+body.crm-dark .crm-search-wrap input {
+    background: transparent !important;
+    color: var(--crm-text) !important;
+}
+
+body.crm-dark .crm-search-wrap input::placeholder {
+    color: var(--crm-text-muted) !important;
+}
+
+body.crm-dark .crm-search-results {
+    background: var(--crm-surface-2) !important;
+    border: 1px solid var(--crm-border) !important;
+}
+
+body.crm-dark .crm-search-item {
+    color: var(--crm-text-secondary) !important;
+}
+
+body.crm-dark .crm-search-item:hover,
+body.crm-dark .crm-search-item.is-active {
+    background: var(--crm-surface-3) !important;
+    color: var(--crm-text) !important;
+}
+
+body.crm-dark .crm-search-section-label {
+    color: var(--crm-text-muted) !important;
+    background: var(--crm-surface-3) !important;
+}
+
+/* ============================================================
+   FILTER BARS
+   ============================================================ */
+body.crm-dark #filterForm,
+body.crm-dark .crm-filter-bar {
+    background: var(--crm-surface) !important;
+    border: 1px solid var(--crm-border) !important;
+}
+
+/* ============================================================
+   PAYMENT / P&L SUMMARY CARDS
+   ============================================================ */
+body.crm-dark .pay-summary-card,
+body.crm-dark .pnl-summary-card,
+html.crm-dark .pay-summary-card,
+html.crm-dark .pnl-summary-card {
+    background: var(--crm-surface) !important;
+    border: 1px solid var(--crm-border) !important;
+    color: var(--crm-text) !important;
+}
+
+body.crm-dark .pay-summary-card h6,
+body.crm-dark .pnl-summary-card h6,
+html.crm-dark .pay-summary-card h6,
+html.crm-dark .pnl-summary-card h6 {
+    color: var(--crm-text-muted) !important;
+}
+
+body.crm-dark .pay-summary-total .pay-value { color: #c4b5fd !important; }
+body.crm-dark .pay-summary-received .pay-value { color: #4ade80 !important; }
+body.crm-dark .pay-summary-pending .pay-value { color: #fb923c !important; }
+body.crm-dark .pay-summary-partial .pay-value { color: #60a5fa !important; }
+
+body.crm-dark .pnl-summary-card .pay-value {
+    color: var(--crm-text) !important;
+}
+
+body.crm-dark .pnl-net-box {
+    background: var(--crm-surface-2) !important;
+    border: 1px solid var(--crm-border) !important;
+}
+
+body.crm-dark .pnl-net-box .label {
+    color: var(--crm-text-secondary) !important;
+}
+
+body.crm-dark .pnl-period {
+    color: var(--crm-text-muted) !important;
+}
+
+body.crm-dark .pnl-section-title {
+    border-bottom-color: var(--crm-border) !important;
+}
+
+body.crm-dark .pnl-section-title.income { color: #4ade80 !important; }
+body.crm-dark .pnl-section-title.expense { color: #fb923c !important; }
+
+body.crm-dark .crm-badge-income {
+    background: rgba(34, 197, 94, 0.15) !important;
+    color: #4ade80 !important;
+}
+
+body.crm-dark .crm-badge-expense {
+    background: rgba(249, 115, 22, 0.15) !important;
+    color: #fb923c !important;
+}
+
+body.crm-dark .crm-badge-pending {
+    background: rgba(249, 115, 22, 0.15) !important;
+    color: #fb923c !important;
+}
+
+body.crm-dark .crm-badge-partial {
+    background: rgba(37, 99, 235, 0.15) !important;
+    color: #60a5fa !important;
+}
+
+body.crm-dark .crm-badge-received {
+    background: rgba(34, 197, 94, 0.15) !important;
+    color: #4ade80 !important;
+}
+
+/* ============================================================
+   MISC TEXT & LINKS
+   ============================================================ */
+body.crm-dark h1, body.crm-dark h2, body.crm-dark h3,
+body.crm-dark h4, body.crm-dark h5, body.crm-dark h6 {
+    color: var(--crm-text) !important;
+}
+
+body.crm-dark p, body.crm-dark span, body.crm-dark label,
+body.crm-dark td, body.crm-dark th {
+    color: var(--crm-text);
+}
+
+body.crm-dark a:not(.btn):not(.dropdown-item):not(.crm-lead-link) {
+    color: var(--crm-primary) !important;
+}
+
+body.crm-dark .crm-lead-link {
+    color: var(--crm-primary) !important;
+}
+
+body.crm-dark .text-muted {
+    color: var(--crm-text-muted) !important;
+}
+
+body.crm-dark .success-message { color: #22c55e !important; }
+body.crm-dark .error-message { color: #f87171 !important; }
+
+/* ============================================================
+   THEME TOGGLE BUTTON
+   ============================================================ */
+.crm-theme-toggle {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--crm-text-secondary, #4c4585);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    transition: background 0.2s, color 0.2s;
+    flex-shrink: 0;
+}
+
+.crm-theme-toggle:hover {
+    background: var(--crm-primary-soft, #f5f0fe);
+    color: var(--crm-primary, #9333ea);
+}
+
+body.crm-dark .crm-theme-toggle {
+    color: #94a3b8;
+}
+
+body.crm-dark .crm-theme-toggle:hover {
+    background: rgba(249,115,22,0.12);
+    color: #f97316;
+}
+
+/* glow ring animation on active dark mode */
+body.crm-dark #page-topbar {
+    box-shadow: 0 1px 0 rgba(249,115,22,0.12), 0 4px 24px rgba(0,0,0,0.5) !important;
+}
+
+/* scrollbar in dark */
+body.crm-dark ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+body.crm-dark ::-webkit-scrollbar-track {
+    background: var(--crm-surface);
+}
+
+body.crm-dark ::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 99px;
+}
+
+body.crm-dark ::-webkit-scrollbar-thumb:hover {
+    background: #475569;
+}
+
+/* ============================================================
+   FullCalendar â€” dark theme (dashboard + calendar page)
+   ============================================================ */
+body.crm-dark .fc,
+body.crm-dark #dashReminderCalendar .fc,
+body.crm-dark #crmCalendar .fc {
+    --fc-border-color: rgba(255,255,255,0.12);
+    --fc-page-bg-color: #111827;
+    --fc-neutral-bg-color: #1a2236;
+    --fc-neutral-text-color: #e2e8f0;
+    --fc-list-event-hover-bg-color: rgba(249,115,22,0.12);
+    --fc-today-bg-color: rgba(249,115,22,0.14);
+    --fc-page-text-color: #ffffff;
+    --fc-button-bg-color: #1a2236;
+    --fc-button-border-color: rgba(255,255,255,0.14);
+    --fc-button-text-color: #ffffff;
+    --fc-button-hover-bg-color: #f97316;
+    --fc-button-hover-border-color: #f97316;
+    --fc-button-active-bg-color: #ea580c;
+    --fc-button-active-border-color: #ea580c;
+    color: #ffffff !important;
+}
+
+body.crm-dark .fc .fc-toolbar-title,
+body.crm-dark #dashReminderCalendar .fc-toolbar-title,
+body.crm-dark #crmCalendar .fc-toolbar-title {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
+body.crm-dark .fc .fc-button,
+body.crm-dark .fc .fc-button-primary,
+body.crm-dark #crmCalendar .fc-button,
+body.crm-dark #crmCalendar .fc-button-primary,
+body.crm-dark #crmCalendar .fc-today-button,
+body.crm-dark #dashReminderCalendar .fc-button,
+body.crm-dark #dashReminderCalendar .fc-button-primary,
+body.crm-dark #dashReminderCalendar .fc-today-button {
+    background: #1a2236 !important;
+    border: 1px solid rgba(255,255,255,0.2) !important;
+    color: #ffffff !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+    opacity: 1 !important;
+}
+
+body.crm-dark .fc .fc-button:hover,
+body.crm-dark .fc .fc-button-primary:hover,
+body.crm-dark .fc .fc-button-primary:not(:disabled).fc-button-active,
+body.crm-dark .fc .fc-button-primary:not(:disabled):active,
+body.crm-dark #crmCalendar .fc-button:hover,
+body.crm-dark #crmCalendar .fc-button-primary:hover,
+body.crm-dark #crmCalendar .fc-button-primary:not(:disabled).fc-button-active,
+body.crm-dark #crmCalendar .fc-button-primary:not(:disabled):active,
+body.crm-dark #dashReminderCalendar .fc-button:hover,
+body.crm-dark #dashReminderCalendar .fc-button-primary:hover,
+body.crm-dark #dashReminderCalendar .fc-button-primary:not(:disabled).fc-button-active {
+    background: #f97316 !important;
+    border-color: #f97316 !important;
+    color: #fff !important;
+    opacity: 1 !important;
+}
+
+/* Today is often disabled on current month â€” keep label readable */
+body.crm-dark .fc .fc-button:disabled,
+body.crm-dark .fc .fc-button-primary:disabled,
+body.crm-dark .fc .fc-today-button:disabled,
+body.crm-dark #crmCalendar .fc-button:disabled,
+body.crm-dark #crmCalendar .fc-button-primary:disabled,
+body.crm-dark #crmCalendar .fc-today-button:disabled,
+body.crm-dark #dashReminderCalendar .fc-button:disabled,
+body.crm-dark #dashReminderCalendar .fc-today-button:disabled {
+    background: #243044 !important;
+    border-color: rgba(255,255,255,0.18) !important;
+    color: #e2e8f0 !important;
+    opacity: 1 !important;
+    cursor: default !important;
+}
+
+body.crm-dark .fc-theme-standard td,
+body.crm-dark .fc-theme-standard th,
+body.crm-dark .fc-theme-standard .fc-scrollgrid,
+body.crm-dark .fc-theme-standard .fc-list {
+    border-color: rgba(255,255,255,0.12) !important;
+}
+
+body.crm-dark .fc .fc-scrollgrid,
+body.crm-dark .fc .fc-scrollgrid-section-header > td,
+body.crm-dark .fc .fc-daygrid-body,
+body.crm-dark .fc .fc-scrollgrid-sync-table {
+    background: #111827 !important;
+}
+
+body.crm-dark .fc .fc-col-header,
+body.crm-dark .fc .fc-col-header-cell {
+    background: #0f172a !important;
+}
+
+body.crm-dark .fc .fc-col-header-cell-cushion {
+    color: #fb923c !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    font-size: 12px !important;
+    padding: 10px 4px !important;
+}
+
+body.crm-dark .fc .fc-daygrid-day {
+    background: #111827 !important;
+}
+
+body.crm-dark .fc .fc-daygrid-day-frame {
+    min-height: 72px;
+}
+
+body.crm-dark .fc .fc-daygrid-day-number {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    padding: 6px 8px !important;
+    opacity: 1 !important;
+}
+
+body.crm-dark .fc .fc-day-other .fc-daygrid-day-number {
+    color: #64748b !important;
+    opacity: 1 !important;
+}
+
+body.crm-dark .fc .fc-daygrid-day.fc-day-today {
+    background: rgba(249,115,22,0.16) !important;
+}
+
+body.crm-dark .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+    background: #f97316 !important;
+    color: #fff !important;
+    border-radius: 999px;
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 !important;
+}
+
+body.crm-dark .fc .fc-daygrid-day:hover {
+    background: rgba(255,255,255,0.04) !important;
+}
+
+body.crm-dark .fc-event,
+body.crm-dark .fc .fc-daygrid-event {
+    border: none !important;
+    font-weight: 600 !important;
+    color: #fff !important;
+}
+
+body.crm-dark .fc .fc-event .fc-event-main,
+body.crm-dark .fc .fc-event .fc-event-title {
+    color: #fff !important;
+}
+
+body.crm-dark .fc .fc-more-link {
+    color: #fb923c !important;
+    font-weight: 700 !important;
+}
+
+/* Popover / more events */
+body.crm-dark .fc .fc-popover {
+    background: #1a2236 !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    color: #ffffff !important;
+}
+
+body.crm-dark .fc .fc-popover-header {
+    background: #0f172a !important;
+    color: #ffffff !important;
+}
+
+body.crm-dark .fc .fc-popover-close {
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
+
+/* List view */
+body.crm-dark .fc .fc-list {
+    background: #111827 !important;
+    border-color: rgba(255,255,255,0.12) !important;
+}
+
+body.crm-dark .fc .fc-list-day-cushion {
+    background: #0f172a !important;
+}
+
+body.crm-dark .fc .fc-list-day-text,
+body.crm-dark .fc .fc-list-day-side-text {
+    color: #fb923c !important;
+    font-weight: 700 !important;
+}
+
+body.crm-dark .fc .fc-list-event td {
+    border-color: rgba(255,255,255,0.08) !important;
+    color: #e2e8f0 !important;
+}
+
+body.crm-dark .fc .fc-list-event:hover td {
+    background: rgba(249,115,22,0.12) !important;
+}
+
+body.crm-dark .fc .fc-list-event-title a,
+body.crm-dark .fc .fc-list-event-time {
+    color: #ffffff !important;
+}
+
+body.crm-dark .fc .fc-list-empty {
+    background: #111827 !important;
+    color: #94a3b8 !important;
+}
+
+/* Week / time grid */
+body.crm-dark .fc .fc-timegrid-slot,
+body.crm-dark .fc .fc-timegrid-axis {
+    border-color: rgba(255,255,255,0.08) !important;
+}
+
+body.crm-dark .fc .fc-timegrid-slot-label-cushion,
+body.crm-dark .fc .fc-timegrid-axis-cushion {
+    color: #94a3b8 !important;
+}
+
+body.crm-dark .fc .fc-timegrid-col.fc-day-today {
+    background: rgba(249,115,22,0.08) !important;
+}
+
+/* Dashboard calendar panel contrast */
+body.crm-dark .crm-dash-calendar-wrap {
+    background: #0f172a;
+    border-radius: 12px;
+    padding: 10px;
+    border: 1px solid rgba(255,255,255,0.06);
+}
+
+body.crm-dark .crm-calendar-wrap {
+    background: #0f172a;
+    border-radius: 12px;
+    padding: 12px;
+}
+
+/* print quotation â€” keep light even in dark mode */
+@media print {
+    body.crm-dark { background: #fff !important; color: #000 !important; }
+}

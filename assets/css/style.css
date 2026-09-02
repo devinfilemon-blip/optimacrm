@@ -1,0 +1,23 @@
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.color-white { color: #ffffff; }
+
+.btn-white {
+    background-color: #ffffff;
+    color: #1e293b;
+    border-radius: 8px;
+}
+
+.page-title-box {
+    padding-top: 0;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.btn-icon {
+    border: none;
+    background: none;
+}

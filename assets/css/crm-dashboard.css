@@ -1,0 +1,723 @@
+/* ============================================================
+   Dashboard — White & Navy attractive layout + animations
+   ============================================================ */
+
+.crm-dash-stat-link {
+    text-decoration: none !important;
+    color: inherit !important;
+    display: block;
+    height: 100%;
+}
+
+/* ---- Hero ---- */
+.crm-dash-hero-v3 {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    min-height: 180px;
+    margin-bottom: 24px;
+    padding: 28px 32px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f4ff 45%, #e8eefc 100%);
+    border: 1px solid #dbe4f5;
+    box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06);
+    animation: crmDashFadeUp 0.55s ease both;
+}
+
+.crm-dash-hero-v3::before {
+    content: '';
+    position: absolute;
+    top: -60px;
+    right: 180px;
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(30, 58, 138, 0.12) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.crm-dash-hero-v3 .crm-dash-greeting {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #1e3a8a;
+    margin-bottom: 6px;
+}
+
+.crm-dash-hero-v3 h2 {
+    font-size: 30px !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    margin: 0 0 8px !important;
+    line-height: 1.15;
+}
+
+.crm-dash-hero-v3 p {
+    font-size: 14px;
+    color: #64748b;
+    margin: 0;
+    max-width: 420px;
+    line-height: 1.55;
+}
+
+.crm-dash-hero-v3-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.crm-dash-hero-v3-actions .btn {
+    border-radius: 999px !important;
+    font-weight: 600;
+    padding: 8px 18px !important;
+}
+
+.crm-dash-hero-v3-actions .btn-primary {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb) !important;
+    border: none !important;
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.28);
+}
+
+.crm-dash-hero-visual {
+    position: relative;
+    width: 300px;
+    min-height: 160px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin-right: 8px;
+    margin-top: 18px;
+}
+
+.crm-hero-orb {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ffffff 0%, #e8eefc 55%, #dbe4f5 100%);
+    border: 1px solid rgba(30, 58, 138, 0.08);
+    box-shadow:
+        0 10px 28px rgba(30, 58, 138, 0.12),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    overflow: hidden;
+}
+
+.crm-hero-orb img {
+    width: 78%;
+    height: 78%;
+    object-fit: contain;
+    filter: drop-shadow(0 6px 12px rgba(15, 23, 42, 0.14));
+}
+
+.crm-hero-orb--chart {
+    width: 168px;
+    height: 168px;
+    right: 0;
+    bottom: -4px;
+    z-index: 1;
+    animation: crmFloat 4s ease-in-out infinite;
+}
+
+.crm-hero-orb--target {
+    width: 118px;
+    height: 118px;
+    right: 130px;
+    top: 0;
+    z-index: 2;
+    animation: crmFloat 3.4s ease-in-out infinite reverse;
+}
+
+body.crm-dark .crm-hero-orb {
+    background: radial-gradient(circle at 35% 30%, #1e293b 0%, #111827 60%, #0f172a 100%);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
+.crm-dash-date-pill {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: #ffffff;
+    border: 1px solid #dbe4f5;
+    color: #1e3a8a;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+}
+
+/* ---- Stat cards ---- */
+.crm-stat-v3 {
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+    min-height: 120px;
+    padding: 20px;
+    border-radius: 16px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    animation: crmDashFadeUp 0.55s ease both;
+}
+
+.crm-stat-v3:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
+}
+
+.crm-stat-v3--reminders { animation-delay: 0.08s; border-left: 4px solid #f97316; }
+.crm-stat-v3--followups { animation-delay: 0.16s; border-left: 4px solid #059669; }
+.crm-stat-v3--reengage { animation-delay: 0.2s; border-left: 4px solid #7c3aed; }
+.crm-stat-v3--assigned  { animation-delay: 0.24s; border-left: 4px solid #2563eb; }
+.crm-stat-v3--total     { animation-delay: 0.06s; border-left: 4px solid #4f46e5; }
+.crm-stat-v3--completed { animation-delay: 0.14s; border-left: 4px solid #16a34a; }
+.crm-stat-v3--active    { animation-delay: 0.2s;  border-left: 4px solid #2563eb; }
+.crm-stat-v3--onhold    { animation-delay: 0.26s; border-left: 4px solid #d97706; }
+
+.crm-stat-v3-icon {
+    width: 54px;
+    height: 54px;
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    flex-shrink: 0;
+    animation: crmPulseSoft 2.8s ease-in-out infinite;
+}
+
+.crm-stat-v3--reminders .crm-stat-v3-icon { background: #fff7ed; color: #ea580c; }
+.crm-stat-v3--followups .crm-stat-v3-icon { background: #ecfdf5; color: #059669; }
+.crm-stat-v3--reengage .crm-stat-v3-icon { background: #f5f3ff; color: #7c3aed; }
+.crm-stat-v3--assigned  .crm-stat-v3-icon { background: #eff6ff; color: #2563eb; }
+.crm-stat-v3--total     .crm-stat-v3-icon { background: #eef2ff; color: #4f46e5; }
+.crm-stat-v3--completed .crm-stat-v3-icon { background: #f0fdf4; color: #16a34a; }
+.crm-stat-v3--active    .crm-stat-v3-icon { background: #eff6ff; color: #2563eb; }
+.crm-stat-v3--onhold    .crm-stat-v3-icon { background: #fffbeb; color: #d97706; }
+
+.crm-stat-v3-num {
+    font-size: 34px;
+    font-weight: 800;
+    line-height: 1;
+    margin: 0 0 4px;
+    color: #0f172a;
+}
+
+.crm-stat-v3--reminders .crm-stat-v3-num { color: #c2410c; }
+.crm-stat-v3--followups .crm-stat-v3-num { color: #047857; }
+.crm-stat-v3--reengage .crm-stat-v3-num { color: #6d28d9; }
+.crm-stat-v3--assigned  .crm-stat-v3-num { color: #1d4ed8; }
+.crm-stat-v3--total     .crm-stat-v3-num { color: #4338ca; }
+.crm-stat-v3--completed .crm-stat-v3-num { color: #15803d; }
+.crm-stat-v3--active    .crm-stat-v3-num { color: #1d4ed8; }
+.crm-stat-v3--onhold    .crm-stat-v3-num { color: #b45309; }
+
+/* ---- Client portal: completion progress bar ---- */
+.crm-client-progress-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 18px 20px;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+}
+.crm-client-progress-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+.crm-client-progress-head h6 {
+    font-size: 13px;
+    font-weight: 700;
+    color: #334155;
+    margin: 0;
+}
+.crm-client-progress-head span {
+    font-size: 13px;
+    font-weight: 800;
+    color: #15803d;
+}
+.crm-client-progress-track {
+    width: 100%;
+    height: 10px;
+    border-radius: 999px;
+    background: #eef1f8;
+    overflow: hidden;
+}
+.crm-client-progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+    transition: width 0.5s ease;
+}
+
+.crm-stat-v3 h6 {
+    font-size: 13px;
+    font-weight: 700;
+    margin: 0 0 4px;
+    color: #334155;
+}
+
+.crm-stat-v3-hint {
+    font-size: 11px;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+/* ---- Cards ---- */
+.crm-panel-v3 {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+    padding: 22px;
+    height: 100%;
+    animation: crmDashFadeUp 0.6s ease both;
+    animation-delay: 0.28s;
+}
+
+.crm-panel-v3-head {
+    margin-bottom: 16px;
+}
+
+.crm-panel-v3-head h6 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.crm-panel-v3-head p {
+    font-size: 12px;
+    color: #94a3b8;
+    margin: 0;
+}
+
+/* Status cards pop-in */
+.crm-status-card {
+    animation: crmDashFadeUp 0.45s ease both;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.crm-status-card:hover {
+    transform: translateY(-3px);
+}
+
+/* Follow-up / boost row */
+.crm-boost-v3 {
+    position: relative;
+    overflow: hidden;
+    min-height: 240px;
+    border-radius: 16px;
+    padding: 22px;
+    background: linear-gradient(145deg, #0f172a 0%, #1e3a8a 55%, #2563eb 100%);
+    border: none;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    animation: crmDashFadeUp 0.65s ease both;
+    animation-delay: 0.35s;
+}
+
+.crm-boost-v3 img {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 150px;
+    height: 150px;
+    object-fit: contain;
+    animation: crmFloat 4s ease-in-out infinite;
+    opacity: 0.95;
+}
+
+.crm-boost-v3 h5 {
+    position: relative;
+    z-index: 1;
+    font-size: 18px;
+    font-weight: 800;
+    color: #fff !important;
+    margin: 0 0 6px;
+}
+
+.crm-boost-v3 p {
+    position: relative;
+    z-index: 1;
+    font-size: 12px;
+    color: rgba(255,255,255,0.75) !important;
+    margin: 0 0 12px;
+    max-width: 200px;
+}
+
+.crm-boost-v3 .btn {
+    position: relative;
+    z-index: 1;
+    width: fit-content;
+    border-radius: 999px !important;
+    background: linear-gradient(135deg, #f97316, #fb923c) !important;
+    border: none !important;
+    font-weight: 700;
+    color: #fff !important;
+}
+
+/* Animations */
+@keyframes crmFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes crmDashFadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes crmPulseSoft {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+    50% { box-shadow: 0 0 0 8px rgba(37, 99, 235, 0.08); }
+}
+
+/* Dark mode overrides for dashboard v3 */
+body.crm-dark .crm-dash-hero-v3 {
+    background: linear-gradient(135deg, #111827 0%, #1a2236 55%, #0f1e2f 100%);
+    border-color: rgba(249,115,22,0.15);
+}
+
+body.crm-dark .crm-dash-hero-v3 .crm-dash-greeting { color: #fb923c; }
+body.crm-dark .crm-dash-hero-v3 h2 { color: #ffffff !important; }
+body.crm-dark .crm-dash-hero-v3 p { color: #e2e8f0; }
+
+body.crm-dark .crm-dash-date-pill {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255,255,255,0.1);
+    color: #ffffff;
+}
+
+body.crm-dark .crm-stat-v3 {
+    background: #111827;
+    border-color: rgba(255,255,255,0.07);
+}
+
+body.crm-dark .crm-stat-v3 h6 { color: #ffffff; }
+body.crm-dark .crm-stat-v3-hint { color: #94a3b8; }
+
+body.crm-dark .crm-stat-v3--reminders .crm-stat-v3-icon { background: rgba(249,115,22,0.15); color: #fb923c; }
+body.crm-dark .crm-stat-v3--followups .crm-stat-v3-icon { background: rgba(34,197,94,0.12); color: #4ade80; }
+body.crm-dark .crm-stat-v3--reengage .crm-stat-v3-icon { background: rgba(124,58,237,0.15); color: #c4b5fd; }
+body.crm-dark .crm-stat-v3--assigned  .crm-stat-v3-icon { background: rgba(37,99,235,0.15); color: #60a5fa; }
+
+body.crm-dark .crm-stat-v3--reminders .crm-stat-v3-num { color: #fb923c; }
+body.crm-dark .crm-stat-v3--followups .crm-stat-v3-num { color: #4ade80; }
+body.crm-dark .crm-stat-v3--reengage .crm-stat-v3-num { color: #c4b5fd; }
+body.crm-dark .crm-stat-v3--assigned  .crm-stat-v3-num { color: #60a5fa; }
+
+body.crm-dark .crm-panel-v3 {
+    background: #111827;
+    border-color: rgba(255,255,255,0.07);
+}
+
+body.crm-dark .crm-panel-v3-head h6 { color: #ffffff; }
+
+@media (max-width: 991.98px) {
+    .crm-dash-hero-visual { display: none; }
+    .crm-dash-date-pill {
+        position: static;
+        margin-top: 12px;
+        width: fit-content;
+    }
+    .crm-dash-hero-v3 {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 22px 18px;
+    }
+    .crm-dash-hero-v3 h2 { font-size: 24px !important; }
+}
+
+/* ---- Lead Pipeline: stacked bar list ---- */
+.crm-pipeline-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.crm-pipeline-bar-row {
+    cursor: pointer;
+    padding: 6px 8px;
+    margin: 0 -8px;
+    border-radius: 10px;
+    outline: none;
+    animation: crmDashFadeUp 0.4s ease both;
+    transition: background 0.2s ease;
+}
+
+.crm-pipeline-bar-row:hover,
+.crm-pipeline-bar-row:focus-visible {
+    background: #f1f5f9;
+}
+
+.crm-pipeline-bar-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.crm-pipeline-bar-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #334155;
+}
+
+.crm-pipeline-bar-count {
+    font-size: 15px;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.crm-pipeline-bar-track {
+    width: 100%;
+    height: 10px;
+    border-radius: 999px;
+    background: #e9edf5;
+    overflow: hidden;
+}
+
+.crm-pipeline-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #2563eb 0%, #3b82f6 100%);
+    transition: width 0.6s ease;
+}
+
+body.crm-dark .crm-pipeline-bar-row:hover,
+body.crm-dark .crm-pipeline-bar-row:focus-visible {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+body.crm-dark .crm-pipeline-bar-label {
+    color: #e2e8f0;
+}
+
+body.crm-dark .crm-pipeline-bar-count {
+    color: #f8fafc;
+}
+
+body.crm-dark .crm-pipeline-bar-track {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+body.crm-dark .crm-pipeline-bar-fill {
+    background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+}
+
+/* ---- Overdue Follow Ups ---- */
+.crm-overdue-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: #fef2f2;
+    color: #dc2626;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.crm-overdue-table {
+    font-size: 13px;
+    margin-bottom: 0;
+}
+
+.crm-overdue-row {
+    transition: background 0.15s ease;
+}
+
+.crm-overdue-row:hover {
+    background: #fef2f2;
+}
+
+.crm-overdue-days {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: #fee2e2;
+    color: #b91c1c;
+    font-weight: 700;
+    font-size: 12px;
+}
+
+body.crm-dark .crm-overdue-badge {
+    background: rgba(220, 38, 38, 0.18);
+    color: #fca5a5;
+}
+
+body.crm-dark .crm-overdue-row:hover {
+    background: rgba(220, 38, 38, 0.1);
+}
+
+body.crm-dark .crm-overdue-days {
+    background: rgba(220, 38, 38, 0.22);
+    color: #fca5a5;
+}
+
+body.crm-dark .crm-overdue-table {
+    color: #e2e8f0;
+}
+
+.crm-dash-calendar-wrap {
+    min-height: 400px;
+}
+
+.crm-calendar-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.crm-calendar-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.crm-calendar-dot--followup { background: #9333ea; }
+.crm-calendar-dot--reminder { background: #059669; }
+
+body.crm-dark .crm-calendar-legend-item { color: #94a3b8; }
+
+#dashReminderCalendar .fc {
+    font-family: Inter, sans-serif;
+}
+
+#dashReminderCalendar .fc .fc-toolbar-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+#dashReminderCalendar .fc .fc-button {
+    border-radius: 8px !important;
+    text-transform: capitalize;
+    font-weight: 600;
+    box-shadow: none !important;
+}
+
+#dashReminderCalendar .fc .fc-button-primary {
+    background: #1e3a8a !important;
+    border-color: #1e3a8a !important;
+}
+
+#dashReminderCalendar .fc .fc-button-primary:not(:disabled).fc-button-active,
+#dashReminderCalendar .fc .fc-button-primary:hover {
+    background: #f97316 !important;
+    border-color: #f97316 !important;
+}
+
+#dashReminderCalendar .fc-theme-standard td,
+#dashReminderCalendar .fc-theme-standard th,
+#dashReminderCalendar .fc-theme-standard .fc-scrollgrid {
+    border-color: #e2e8f0;
+}
+
+#dashReminderCalendar .fc .fc-daygrid-day.fc-day-today {
+    background: rgba(37, 99, 235, 0.08);
+}
+
+#dashReminderCalendar .fc-event {
+    border-radius: 4px;
+    font-size: 11px;
+    padding: 1px 4px;
+    cursor: pointer;
+}
+
+body.crm-dark #dashReminderCalendar .fc-theme-standard td,
+body.crm-dark #dashReminderCalendar .fc-theme-standard th,
+body.crm-dark #dashReminderCalendar .fc-theme-standard .fc-scrollgrid {
+    border-color: rgba(255,255,255,0.12) !important;
+}
+
+body.crm-dark #dashReminderCalendar .fc .fc-col-header-cell-cushion {
+    color: #fb923c !important;
+    font-weight: 700 !important;
+}
+
+body.crm-dark #dashReminderCalendar .fc .fc-daygrid-day-number {
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    opacity: 1 !important;
+}
+
+body.crm-dark #dashReminderCalendar .fc .fc-day-other .fc-daygrid-day-number {
+    color: #94a3b8 !important;
+}
+
+body.crm-dark #dashReminderCalendar .fc-toolbar-title,
+body.crm-dark #dashReminderCalendar .fc-list-day-text,
+body.crm-dark #dashReminderCalendar .fc-list-day-side-text {
+    color: #ffffff !important;
+}
+
+body.crm-dark #dashReminderCalendar .fc .fc-daygrid-day.fc-day-today {
+    background: rgba(249,115,22,0.16) !important;
+}
+
+body.crm-dark #dashReminderCalendar .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+    background: #f97316 !important;
+    color: #fff !important;
+    border-radius: 999px;
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 !important;
+}
+
+body.crm-dark #dashReminderCalendar .fc .fc-button-primary {
+    background: #1a2236 !important;
+    border-color: rgba(255,255,255,0.16) !important;
+    color: #f1f5f9 !important;
+}
+
+body.crm-dark #dashReminderCalendar .fc .fc-button-primary:not(:disabled).fc-button-active,
+body.crm-dark #dashReminderCalendar .fc .fc-button-primary:hover {
+    background: #f97316 !important;
+    border-color: #f97316 !important;
+    color: #fff !important;
+}
+
+body.crm-dark #dashReminderCalendar .fc-list {
+    border-color: rgba(255,255,255,0.12) !important;
+    background: #111827 !important;
+}
+
+body.crm-dark #dashReminderCalendar .fc-list-event:hover td {
+    background: rgba(249,115,22,0.12) !important;
+}
+
+body.crm-dark #dashReminderCalendar .fc-event,
+body.crm-dark #dashReminderCalendar .fc-event .fc-event-main {
+    color: #fff !important;
+}
