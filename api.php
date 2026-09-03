@@ -77,7 +77,7 @@ if ($action === 'loginUser') {
     }
 
     $query = "SELECT iUserid, sPhone, sPassword_hash, sName, sIs_active, sRole
-              FROM tbluser WHERE sPhone = ? OR sName = ? LIMIT 1";
+              FROM tbluser WHERE (sPhone = ? OR sName = ?) AND dDeletedAt IS NULL LIMIT 1";
     $stmt = mysqli_prepare($link, $query);
     mysqli_stmt_bind_param($stmt, "ss", $phone, $phone);
     mysqli_stmt_execute($stmt);
@@ -452,15 +452,43 @@ if ($action === 'dashboardStats') {
 if ($action === 'fngetlistcompany') {
     $rows = [];
     $r = mysqli_query($link, "SELECT c.*,
-        (SELECT COUNT(*) FROM tblrequirement req WHERE req.iCompanyId = c.iCompanyId) AS reqCount
-        FROM tblcompany c ORDER BY c.iCompanyId DESC");
+        (SELECT COUNT(*) FROM tblrequirement req WHERE req.iCompanyId = c.iCompanyId AND req.dDeletedAt IS NULL) AS reqCount
+        FROM tblcompany c WHERE c.dDeletedAt IS NULL ORDER BY c.iCompanyId DESC");
     while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
     sendResponse("success", "ok", $rows);
 }
 
+if ($action === 'fngetlisttrashcompany') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $rows = [];
+    $r = mysqli_query($link, "SELECT * FROM tblcompany WHERE dDeletedAt IS NOT NULL ORDER BY dDeletedAt DESC");
+    while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
+    sendResponse("success", "ok", $rows);
+}
+
+if ($action === 'restorecompany') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid company id.");
+    $stmt = mysqli_prepare($link, "UPDATE tblcompany SET dDeletedAt = NULL WHERE iCompanyId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Company restored successfully.");
+}
+
+if ($action === 'permanentlydeletecompany') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid company id.");
+    $stmt = mysqli_prepare($link, "DELETE FROM tblcompany WHERE iCompanyId = ? AND dDeletedAt IS NOT NULL");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Company permanently deleted.");
+}
+
 if ($action === 'fngetcompanydropdown') {
     $rows = [];
-    $r = mysqli_query($link, "SELECT iCompanyId, sCompanyName FROM tblcompany WHERE sStatus='Active' ORDER BY sCompanyName ASC");
+    $r = mysqli_query($link, "SELECT iCompanyId, sCompanyName FROM tblcompany WHERE sStatus='Active' AND dDeletedAt IS NULL ORDER BY sCompanyName ASC");
     while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
     sendResponse("success", "ok", $rows);
 }
@@ -510,10 +538,10 @@ if ($action === 'addcompany' || $action === 'updatecompany') {
 if ($action === 'deletecompany') {
     $id = reqInt($inputData, 'id', 0);
     if (!$id) sendResponse("error", "Invalid company id.");
-    $stmt = mysqli_prepare($link, "DELETE FROM tblcompany WHERE iCompanyId = ?");
+    $stmt = mysqli_prepare($link, "UPDATE tblcompany SET dDeletedAt = NOW() WHERE iCompanyId = ?");
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
-    sendResponse("success", "Company deleted successfully.");
+    sendResponse("success", "Company moved to trash.");
 }
 
 // =====================================================================
@@ -523,9 +551,41 @@ if ($action === 'fngetlistrequirement') {
     $rows = [];
     $r = mysqli_query($link, "SELECT r.*, c.sCompanyName
                                FROM tblrequirement r LEFT JOIN tblcompany c ON c.iCompanyId = r.iCompanyId
+                               WHERE r.dDeletedAt IS NULL
                                ORDER BY r.iReqId DESC");
     while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
     sendResponse("success", "ok", $rows);
+}
+
+if ($action === 'fngetlisttrashrequirement') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $rows = [];
+    $r = mysqli_query($link, "SELECT r.*, c.sCompanyName
+                               FROM tblrequirement r LEFT JOIN tblcompany c ON c.iCompanyId = r.iCompanyId
+                               WHERE r.dDeletedAt IS NOT NULL
+                               ORDER BY r.dDeletedAt DESC");
+    while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
+    sendResponse("success", "ok", $rows);
+}
+
+if ($action === 'restorerequirement') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid requirement id.");
+    $stmt = mysqli_prepare($link, "UPDATE tblrequirement SET dDeletedAt = NULL WHERE iReqId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Requirement restored successfully.");
+}
+
+if ($action === 'permanentlydeleterequirement') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid requirement id.");
+    $stmt = mysqli_prepare($link, "DELETE FROM tblrequirement WHERE iReqId = ? AND dDeletedAt IS NOT NULL");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Requirement permanently deleted.");
 }
 
 if ($action === 'getrequirementbyid') {
@@ -595,10 +655,10 @@ if ($action === 'addrequirement' || $action === 'updaterequirement') {
 if ($action === 'deleterequirement') {
     $id = reqInt($inputData, 'id', 0);
     if (!$id) sendResponse("error", "Invalid requirement id.");
-    $stmt = mysqli_prepare($link, "DELETE FROM tblrequirement WHERE iReqId = ?");
+    $stmt = mysqli_prepare($link, "UPDATE tblrequirement SET dDeletedAt = NOW() WHERE iReqId = ?");
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
-    sendResponse("success", "Requirement deleted successfully.");
+    sendResponse("success", "Requirement moved to trash.");
 }
 
 // =====================================================================
@@ -608,9 +668,49 @@ if ($action === 'fngetlistplacement') {
     $rows = [];
     $r = mysqli_query($link, "SELECT p.*, c.sCompanyName
                                FROM tblplacement p LEFT JOIN tblcompany c ON c.iCompanyId = p.iCompanyId
+                               WHERE p.dDeletedAt IS NULL
                                ORDER BY p.iPlacementId DESC");
     while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
     sendResponse("success", "ok", $rows);
+}
+
+if ($action === 'fngetlisttrashplacement') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $rows = [];
+    $r = mysqli_query($link, "SELECT p.*, c.sCompanyName
+                               FROM tblplacement p LEFT JOIN tblcompany c ON c.iCompanyId = p.iCompanyId
+                               WHERE p.dDeletedAt IS NOT NULL
+                               ORDER BY p.dDeletedAt DESC");
+    while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
+    sendResponse("success", "ok", $rows);
+}
+
+if ($action === 'restoreplacement') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid placement id.");
+    $stmt = mysqli_prepare($link, "UPDATE tblplacement SET dDeletedAt = NULL WHERE iPlacementId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Placement restored successfully.");
+}
+
+if ($action === 'permanentlydeleteplacement') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid placement id.");
+    $stmt = mysqli_prepare($link, "SELECT sResumePath FROM tblplacement WHERE iPlacementId = ? AND dDeletedAt IS NOT NULL");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    if ($row && $row['sResumePath']) {
+        $full = __DIR__ . '/uploads/resumes/' . basename($row['sResumePath']);
+        if (is_file($full)) @unlink($full);
+    }
+    $stmt = mysqli_prepare($link, "DELETE FROM tblplacement WHERE iPlacementId = ? AND dDeletedAt IS NOT NULL");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Placement permanently deleted.");
 }
 
 if ($action === 'getplacementbyid') {
@@ -764,18 +864,12 @@ if ($action === 'deleteresume') {
 if ($action === 'deleteplacement') {
     $id = reqInt($inputData, 'id', 0);
     if (!$id) sendResponse("error", "Invalid placement id.");
-    $stmt = mysqli_prepare($link, "SELECT sResumePath FROM tblplacement WHERE iPlacementId = ?");
+    // Soft delete only — the resume file and row are kept until the record
+    // is removed from the trash for good (see permanentlydeleteplacement).
+    $stmt = mysqli_prepare($link, "UPDATE tblplacement SET dDeletedAt = NOW() WHERE iPlacementId = ?");
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
-    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
-    if ($row && $row['sResumePath']) {
-        $full = __DIR__ . '/uploads/resumes/' . basename($row['sResumePath']);
-        if (is_file($full)) @unlink($full);
-    }
-    $stmt = mysqli_prepare($link, "DELETE FROM tblplacement WHERE iPlacementId = ?");
-    mysqli_stmt_bind_param($stmt, "i", $id);
-    mysqli_stmt_execute($stmt);
-    sendResponse("success", "Placement deleted successfully.");
+    sendResponse("success", "Placement moved to trash.");
 }
 
 // =====================================================================
@@ -789,17 +883,50 @@ if ($action === 'fngetlistuser') {
         $r = mysqli_query($link, "SELECT u.iUserid, u.sName, u.sEmail, u.sPhone, u.sRole, u.iManagerId, u.sIs_active, u.sCreatedTimeStamp,
                                           m.sName AS sManagerName
                                    FROM tbluser u LEFT JOIN tbluser m ON m.iUserid = u.iManagerId
+                                   WHERE u.dDeletedAt IS NULL
                                    ORDER BY u.iUserid DESC");
         while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
     } else {
         $stmt = mysqli_prepare($link, "SELECT iUserid, sName, sEmail, sPhone, sRole, iManagerId, sIs_active, sCreatedTimeStamp
-                                        FROM tbluser WHERE iManagerId = ? ORDER BY iUserid DESC");
+                                        FROM tbluser WHERE iManagerId = ? AND dDeletedAt IS NULL ORDER BY iUserid DESC");
         mysqli_stmt_bind_param($stmt, "i", $currentUserId);
         mysqli_stmt_execute($stmt);
         $r = mysqli_stmt_get_result($stmt);
         while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
     }
     sendResponse("success", "ok", $rows);
+}
+
+if ($action === 'fngetlisttrashuser') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $rows = [];
+    $r = mysqli_query($link, "SELECT u.iUserid, u.sName, u.sEmail, u.sPhone, u.sRole, u.iManagerId, u.sIs_active, u.dDeletedAt,
+                                      m.sName AS sManagerName
+                               FROM tbluser u LEFT JOIN tbluser m ON m.iUserid = u.iManagerId
+                               WHERE u.dDeletedAt IS NOT NULL
+                               ORDER BY u.dDeletedAt DESC");
+    while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
+    sendResponse("success", "ok", $rows);
+}
+
+if ($action === 'restoreuser') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid user id.");
+    $stmt = mysqli_prepare($link, "UPDATE tbluser SET dDeletedAt = NULL WHERE iUserid = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "User restored successfully.");
+}
+
+if ($action === 'permanentlydeleteuser') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid user id.");
+    $stmt = mysqli_prepare($link, "DELETE FROM tbluser WHERE iUserid = ? AND dDeletedAt IS NOT NULL");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "User permanently deleted.");
 }
 
 if ($action === 'fngetteamleaderdropdown') {
@@ -899,10 +1026,10 @@ if ($action === 'deleteuser') {
         $chkRow = mysqli_fetch_assoc(mysqli_stmt_get_result($chk));
         if (!$chkRow || (int) $chkRow['iManagerId'] !== $currentUserId) sendResponse("error", "Not authorized.");
     }
-    $stmt = mysqli_prepare($link, "DELETE FROM tbluser WHERE iUserid = ?");
+    $stmt = mysqli_prepare($link, "UPDATE tbluser SET dDeletedAt = NOW() WHERE iUserid = ?");
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
-    sendResponse("success", "User deleted successfully.");
+    sendResponse("success", "User moved to trash.");
 }
 
 // =====================================================================

@@ -141,13 +141,17 @@ function loadTeamLeaderDropdown(selected) {
             if (selected && parseInt(selected) === parseInt(tl.iUserid)) opt.selected = true;
             sel.appendChild(opt);
         });
+        crmRefreshSelect2(sel);
     });
 }
 
 function loadUser() {
     if (CRM_IS_ADMIN_PAGE) {
         loadTeamLeaderDropdown(null);
-        document.getElementById('role').addEventListener('change', toggleManagerField);
+        // jQuery's .on(), not addEventListener: Select2 fires its change
+        // notifications through jQuery's event system, which a native
+        // addEventListener('change', ...) listener never sees.
+        $('#role').on('change', toggleManagerField);
         toggleManagerField();
     }
     if (!editId) return;

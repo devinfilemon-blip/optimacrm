@@ -15,8 +15,9 @@
                 <div class="row">
                     <div class="col-12">
                         <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                            <h4 class="mb-sm-0 font-size-18">Job Requirements</h4>
-                            <div class="page-title-right">
+                            <h4 class="mb-sm-0 font-size-18" id="pageTitle">Job Requirements</h4>
+                            <div class="page-title-right" id="pageActions">
+                                <a href="list-requirement.php?trashed=1" class="btn btn-outline-secondary btn-sm"><i class="bx bx-trash"></i> Trash</a>
                                 <a href="add-requirement.php" class="btn btn-primary btn-sm"><i class="bx bx-plus"></i> Add Requirement</a>
                             </div>
                         </div>
@@ -30,6 +31,7 @@
                             <tr>
                                 <th>Req No</th>
                                 <th>Open Date</th>
+                                <th id="daysHeader">Days</th>
                                 <th>Company</th>
                                 <th>Post</th>
                                 <th>Type</th>
@@ -112,38 +114,58 @@ function getPeriodRange(period) {
     return { start: ymd(start), end: ymd(end) };
 }
 
+var CRM_TRASH_MODE = new URLSearchParams(window.location.search).get('trashed') === '1';
 var requirementRowsById = {};
+
+if (CRM_TRASH_MODE) {
+    document.getElementById('pageTitle').textContent = 'Job Requirements — Trash';
+    document.getElementById('pageActions').innerHTML = '<a href="list-requirement.php" class="btn btn-primary btn-sm"><i class="bx bx-arrow-back"></i> Back to List</a>';
+    document.getElementById('daysHeader').textContent = 'Deleted At';
+}
+
 function fngetlistrequirement() {
     $.ajax({
         url: 'api.php',
         method: 'POST',
         contentType: 'application/json',
-        data: JSON.stringify({ action: 'fngetlistrequirement' }),
+        data: JSON.stringify({ action: CRM_TRASH_MODE ? 'fngetlisttrashrequirement' : 'fngetlistrequirement' }),
         success: function (response) {
             if (response.status === 'success') {
                 var rows = '';
                 var data = response.data;
-                var params = new URLSearchParams(window.location.search);
-                if (params.get('openOnly') === '1') {
-                    data = data.filter(function (r) { return ['Closed by Co.', 'Not Joining'].indexOf(r.sStatus) === -1; });
-                }
-                var period = params.get('period');
-                if (period) {
-                    var range = getPeriodRange(period);
-                    data = data.filter(function (r) { return r.dOpenDate && r.dOpenDate >= range.start && r.dOpenDate <= range.end; });
+                if (!CRM_TRASH_MODE) {
+                    var params = new URLSearchParams(window.location.search);
+                    if (params.get('openOnly') === '1') {
+                        data = data.filter(function (r) { return ['Closed by Co.', 'Not Joining'].indexOf(r.sStatus) === -1; });
+                    }
+                    var period = params.get('period');
+                    if (period) {
+                        var range = getPeriodRange(period);
+                        data = data.filter(function (r) { return r.dOpenDate && r.dOpenDate >= range.start && r.dOpenDate <= range.end; });
+                    }
                 }
                 requirementRowsById = {};
                 data.forEach(function (r) {
                     requirementRowsById[r.iReqId] = r;
                     var pendingDays = daysSince(r.dOpenDate);
-                    var tier = overdueTier(r.sStatus, pendingDays);
+                    var tier = CRM_TRASH_MODE ? 0 : overdueTier(r.sStatus, pendingDays);
                     var rowClass = tier === 2 ? ' class="optima-row-critical"' : (tier === 1 ? ' class="optima-row-warning"' : '');
                     var overdueBadge = tier
                         ? ' <span class="optima-badge ' + (tier === 2 ? 'optima-badge-critical' : 'optima-badge-warning') + '" title="Open ' + pendingDays + ' days">' + pendingDays + 'd</span>'
                         : '';
+                    var actions = CRM_TRASH_MODE
+                        ? crmActionMenu([
+                            { label: 'Restore', icon: 'bx-undo', onclick: 'restorerequirement(' + r.iReqId + ')' },
+                            { label: 'Delete Forever', icon: 'bx-trash', danger: true, onclick: 'permanentlydeleterequirement(' + r.iReqId + ')' }
+                          ])
+                        : crmActionMenu([
+                            { label: 'Edit', icon: 'bx-edit-alt', href: 'add-requirement.php?id=' + r.iReqId },
+                            { label: 'Delete', icon: 'bx-trash', danger: true, onclick: 'deleterequirement(' + r.iReqId + ')' }
+                          ]);
                     rows += '<tr data-id="' + r.iReqId + '"' + rowClass + '>' +
                         '<td>' + esc(r.sReqNo) + '</td>' +
                         '<td>' + esc(r.dOpenDate) + '</td>' +
+                        '<td>' + (CRM_TRASH_MODE ? esc(r.dDeletedAt) : (pendingDays === null ? '-' : pendingDays + 'd')) + '</td>' +
                         '<td>' + esc(r.sCompanyName || '-') + '</td>' +
                         '<td>' + esc(r.sPost) + '</td>' +
                         '<td>' + esc(r.sType) + '</td>' +
@@ -151,30 +173,61 @@ function fngetlistrequirement() {
                         '<td>' + esc(r.sSalary) + '</td>' +
                         '<td>' + badgeForStatus(r.sStatus) + overdueBadge + '</td>' +
                         '<td>' + esc(r.sRecruiter) + '</td>' +
-                        crmActionMenu([
-                            { label: 'Edit', icon: 'bx-edit-alt', href: 'add-requirement.php?id=' + r.iReqId },
-                            { label: 'Delete', icon: 'bx-trash', danger: true, onclick: 'deleterequirement(' + r.iReqId + ')' }
-                        ]) +
+                        actions +
                         '</tr>';
                 });
                 if ($.fn.DataTable.isDataTable('#datatable')) $('#datatable').DataTable().destroy();
-                $('#datatable tbody').html(rows);
-                var dt = $('#datatable').DataTable({ order: [[0, 'desc']] });
-                var q = new URLSearchParams(window.location.search).get('q');
-                if (q) dt.search(q).draw();
+                // A lone colspan "no records" row confuses DataTables' column
+                // auto-detection (it indexes cells off the first tbody row),
+                // so only initialize the table when there's real data to show.
+                $('#datatable tbody').html(rows || '<tr><td colspan="11">' + (CRM_TRASH_MODE ? 'Trash is empty' : 'No requirements found') + '</td></tr>');
+                if (rows) {
+                    var dt = $('#datatable').DataTable({ order: [[0, 'desc']] });
+                    var q = new URLSearchParams(window.location.search).get('q');
+                    if (q) dt.search(q).draw();
+                }
             } else {
-                $('#datatable tbody').html('<tr><td colspan="10">No requirements found</td></tr>');
+                $('#datatable tbody').html('<tr><td colspan="11">No requirements found</td></tr>');
             }
         }
     });
 }
 
 function deleterequirement(id) {
-    if (!confirm('Are you sure you want to delete this requirement?')) return;
+    if (!confirm('Move this requirement to trash? You can restore it later from the Trash view.')) return;
     fetch('api.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'deleterequirement', id: id })
+    })
+    .then(r => r.json())
+    .then(res => {
+        document.getElementById('message').innerHTML = res.message;
+        document.getElementById('message').className = res.status === 'success' ? 'add-message' : 'error-message';
+        fngetlistrequirement();
+    });
+}
+
+function restorerequirement(id) {
+    fetch('api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restorerequirement', id: id })
+    })
+    .then(r => r.json())
+    .then(res => {
+        document.getElementById('message').innerHTML = res.message;
+        document.getElementById('message').className = res.status === 'success' ? 'add-message' : 'error-message';
+        fngetlistrequirement();
+    });
+}
+
+function permanentlydeleterequirement(id) {
+    if (!confirm('Permanently delete this requirement? This cannot be undone.')) return;
+    fetch('api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'permanentlydeleterequirement', id: id })
     })
     .then(r => r.json())
     .then(res => {
@@ -200,30 +253,33 @@ function withCachedOptions(cacheKey, action, valueKey, labelKey, place) {
         });
 }
 
-window.crmInlineEdit = {
-    getRowId: function ($row) { return parseInt($row.data('id'), 10); },
-    getFullRow: function (id) { return requirementRowsById[id]; },
-    fields: [
-        { cellIndex: 1, key: 'dOpenDate', type: 'date' },
-        { cellIndex: 2, key: 'iCompanyId', type: 'select', options: function (place) { withCachedOptions('company', 'fngetlistcompany', 'iCompanyId', 'sCompanyName', place); } },
-        { cellIndex: 3, key: 'sPost', type: 'text' },
-        { cellIndex: 4, key: 'sType', type: 'select', options: [{ value: 'NT', label: 'NT' }, { value: 'T', label: 'T' }] },
-        { cellIndex: 5, key: 'sLocation', type: 'text' },
-        { cellIndex: 6, key: 'sSalary', type: 'text' },
-        { cellIndex: 7, key: 'sStatus', type: 'select', options: function (place) { withCachedOptions('status', 'fngetliststatus', 'sStatus', 'sStatus', place); } },
-        { cellIndex: 8, key: 'sRecruiter', type: 'select', options: function (place) { withCachedOptions('recruiter', 'fngetlistrecruiter', 'sRecruiter', 'sRecruiter', place); } }
-    ],
-    toPayload: function (merged, id) {
-        return {
-            id: id, companyId: merged.iCompanyId, post: merged.sPost, noOfVacancy: merged.iNoOfVacancy, type: merged.sType,
-            location: merged.sLocation, education: merged.sEducation, experience: merged.sExperience, salary: merged.sSalary,
-            openDate: merged.dOpenDate, followupDate: merged.dFollowupDate, rank: merged.sRank, status: merged.sStatus,
-            followupBy: merged.sFollowupBy, recruiter: merged.sRecruiter, remark: merged.sRemark
-        };
-    },
-    saveAction: 'updaterequirement',
-    onSaved: function () { fngetlistrequirement(); }
-};
+// Trashed records aren't inline-editable — restore them first.
+if (!CRM_TRASH_MODE) {
+    window.crmInlineEdit = {
+        getRowId: function ($row) { return parseInt($row.data('id'), 10); },
+        getFullRow: function (id) { return requirementRowsById[id]; },
+        fields: [
+            { cellIndex: 1, key: 'dOpenDate', type: 'date' },
+            { cellIndex: 3, key: 'iCompanyId', type: 'select', options: function (place) { withCachedOptions('company', 'fngetlistcompany', 'iCompanyId', 'sCompanyName', place); } },
+            { cellIndex: 4, key: 'sPost', type: 'text' },
+            { cellIndex: 5, key: 'sType', type: 'select', options: [{ value: 'NT', label: 'NT' }, { value: 'T', label: 'T' }] },
+            { cellIndex: 6, key: 'sLocation', type: 'text' },
+            { cellIndex: 7, key: 'sSalary', type: 'text' },
+            { cellIndex: 8, key: 'sStatus', type: 'select', options: function (place) { withCachedOptions('status', 'fngetliststatus', 'sStatus', 'sStatus', place); } },
+            { cellIndex: 9, key: 'sRecruiter', type: 'select', options: function (place) { withCachedOptions('recruiter', 'fngetlistrecruiter', 'sRecruiter', 'sRecruiter', place); } }
+        ],
+        toPayload: function (merged, id) {
+            return {
+                id: id, companyId: merged.iCompanyId, post: merged.sPost, noOfVacancy: merged.iNoOfVacancy, type: merged.sType,
+                location: merged.sLocation, education: merged.sEducation, experience: merged.sExperience, salary: merged.sSalary,
+                openDate: merged.dOpenDate, followupDate: merged.dFollowupDate, rank: merged.sRank, status: merged.sStatus,
+                followupBy: merged.sFollowupBy, recruiter: merged.sRecruiter, remark: merged.sRemark
+            };
+        },
+        saveAction: 'updaterequirement',
+        onSaved: function () { fngetlistrequirement(); }
+    };
+}
 
 $(document).ready(function () { fngetlistrequirement(); });
 </script>

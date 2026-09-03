@@ -199,6 +199,7 @@ function loadCompanyDropdown(selected, cb) {
             if (selected && parseInt(selected) === parseInt(c.iCompanyId)) opt.selected = true;
             sel.appendChild(opt);
         });
+        crmRefreshSelect2(sel);
         if (cb) cb();
     });
 }
@@ -220,6 +221,7 @@ function loadStatusDropdown(selected) {
             if (selected && selected === s.sStatus) opt.selected = true;
             sel.appendChild(opt);
         });
+        crmRefreshSelect2(sel);
     });
 }
 
@@ -240,6 +242,7 @@ function loadRecruiterDropdown(selected) {
             if (selected && selected === s.sRecruiter) opt.selected = true;
             sel.appendChild(opt);
         });
+        crmRefreshSelect2(sel);
     });
 }
 
@@ -268,6 +271,7 @@ function loadPostDropdown(selected) {
             opt.selected = true;
             sel.appendChild(opt);
         }
+        crmRefreshSelect2(sel);
     });
 }
 

@@ -20,8 +20,11 @@ if (!$crmIsAdminPage && !$crmIsTeamLeaderPage) { header('Location: index.php'); 
                 <div class="row">
                     <div class="col-12">
                         <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                            <h4 class="mb-sm-0 font-size-18"><?php echo $crmIsAdminPage ? 'Recruiters &amp; Users' : 'My Recruiters'; ?></h4>
-                            <div class="page-title-right">
+                            <h4 class="mb-sm-0 font-size-18" id="pageTitle"><?php echo $crmIsAdminPage ? 'Recruiters &amp; Users' : 'My Recruiters'; ?></h4>
+                            <div class="page-title-right" id="pageActions">
+                                <?php if ($crmIsAdminPage) : ?>
+                                <a href="list-user.php?trashed=1" class="btn btn-outline-secondary btn-sm"><i class="bx bx-trash"></i> Trash</a>
+                                <?php endif; ?>
                                 <a href="add-user.php" class="btn btn-primary btn-sm"><i class="bx bx-plus"></i> <?php echo $crmIsAdminPage ? 'Add User' : 'Add Recruiter'; ?></a>
                             </div>
                         </div>
@@ -57,13 +60,20 @@ if (!$crmIsAdminPage && !$crmIsTeamLeaderPage) { header('Location: index.php'); 
 <?php include 'layouts/vendor-scripts.php'; ?>
 <script>
 var CRM_IS_ADMIN_PAGE = <?php echo $crmIsAdminPage ? 'true' : 'false'; ?>;
+var CRM_TRASH_MODE = CRM_IS_ADMIN_PAGE && new URLSearchParams(window.location.search).get('trashed') === '1';
 var userRowsById = {};
+
+if (CRM_TRASH_MODE) {
+    document.getElementById('pageTitle').textContent = 'Recruiters & Users — Trash';
+    document.getElementById('pageActions').innerHTML = '<a href="list-user.php" class="btn btn-primary btn-sm"><i class="bx bx-arrow-back"></i> Back to List</a>';
+}
+
 function fngetlistuser() {
     $.ajax({
         url: 'api.php',
         method: 'POST',
         contentType: 'application/json',
-        data: JSON.stringify({ action: 'fngetlistuser' }),
+        data: JSON.stringify({ action: CRM_TRASH_MODE ? 'fngetlisttrashuser' : 'fngetlistuser' }),
         success: function (response) {
             if (response.status === 'success') {
                 var rows = '';
@@ -73,6 +83,15 @@ function fngetlistuser() {
                     var statusBadge = parseInt(u.sIs_active) === 1
                         ? '<span class="optima-badge optima-badge-closed">Active</span>'
                         : '<span class="optima-badge optima-badge-default">Inactive</span>';
+                    var actions = CRM_TRASH_MODE
+                        ? crmActionMenu([
+                            { label: 'Restore', icon: 'bx-undo', onclick: 'restoreuser(' + u.iUserid + ')' },
+                            { label: 'Delete Forever', icon: 'bx-trash', danger: true, onclick: 'permanentlydeleteuser(' + u.iUserid + ')' }
+                          ])
+                        : crmActionMenu([
+                            { label: 'Edit', icon: 'bx-edit-alt', href: 'add-user.php?id=' + u.iUserid },
+                            { label: 'Delete', icon: 'bx-trash', danger: true, onclick: 'deleteuser(' + u.iUserid + ')' }
+                          ]);
                     rows += '<tr data-id="' + u.iUserid + '">' +
                         '<td>' + (i + 1) + '</td>' +
                         '<td>' + $('<div>').text(u.sName).html() + '</td>' +
@@ -81,15 +100,15 @@ function fngetlistuser() {
                         '<td>' + $('<div>').text(u.sRole).html() + '</td>' +
                         (CRM_IS_ADMIN_PAGE ? '<td>' + $('<div>').text(u.sManagerName || '-').html() + '</td>' : '') +
                         '<td>' + statusBadge + '</td>' +
-                        crmActionMenu([
-                            { label: 'Edit', icon: 'bx-edit-alt', href: 'add-user.php?id=' + u.iUserid },
-                            { label: 'Delete', icon: 'bx-trash', danger: true, onclick: 'deleteuser(' + u.iUserid + ')' }
-                        ]) +
+                        actions +
                         '</tr>';
                 });
                 if ($.fn.DataTable.isDataTable('#datatable')) $('#datatable').DataTable().destroy();
-                $('#datatable tbody').html(rows);
-                $('#datatable').DataTable();
+                // A lone colspan "no records" row confuses DataTables' column
+                // auto-detection (it indexes cells off the first tbody row),
+                // so only initialize the table when there's real data to show.
+                $('#datatable tbody').html(rows || '<tr><td colspan="8">' + (CRM_TRASH_MODE ? 'Trash is empty' : 'No users found') + '</td></tr>');
+                if (rows) $('#datatable').DataTable();
             } else {
                 $('#datatable tbody').html('<tr><td colspan="8">No users found</td></tr>');
             }
@@ -104,29 +123,61 @@ var crmRoleField = CRM_IS_ADMIN_PAGE
     ? { cellIndex: 4, key: 'sRole', type: 'select', options: [{ value: 'Admin', label: 'Admin' }, { value: 'Team Leader', label: 'Team Leader' }, { value: 'Recruiter', label: 'Recruiter' }] }
     : null;
 
-window.crmInlineEdit = {
-    getRowId: function ($row) { return parseInt($row.data('id'), 10); },
-    getFullRow: function (id) { return userRowsById[id]; },
-    fields: [
-        { cellIndex: 1, key: 'sName', type: 'text' },
-        { cellIndex: 2, key: 'sPhone', type: 'text' },
-        { cellIndex: 3, key: 'sEmail', type: 'text' }
-    ].concat(crmRoleField ? [crmRoleField] : []).concat([
-        { cellIndex: 5 + crmUserColOffset, key: 'sIs_active', type: 'select', options: [{ value: 1, label: 'Active' }, { value: 0, label: 'Inactive' }] }
-    ]),
-    toPayload: function (merged, id) {
-        return { id: id, name: merged.sName, phone: merged.sPhone, email: merged.sEmail, role: merged.sRole, managerId: merged.iManagerId, isActive: merged.sIs_active };
-    },
-    saveAction: 'updateuser',
-    onSaved: function () { fngetlistuser(); }
-};
+// Trashed records aren't inline-editable — restore them first.
+if (!CRM_TRASH_MODE) {
+    window.crmInlineEdit = {
+        getRowId: function ($row) { return parseInt($row.data('id'), 10); },
+        getFullRow: function (id) { return userRowsById[id]; },
+        fields: [
+            { cellIndex: 1, key: 'sName', type: 'text' },
+            { cellIndex: 2, key: 'sPhone', type: 'text' },
+            { cellIndex: 3, key: 'sEmail', type: 'text' }
+        ].concat(crmRoleField ? [crmRoleField] : []).concat([
+            { cellIndex: 5 + crmUserColOffset, key: 'sIs_active', type: 'select', options: [{ value: 1, label: 'Active' }, { value: 0, label: 'Inactive' }] }
+        ]),
+        toPayload: function (merged, id) {
+            return { id: id, name: merged.sName, phone: merged.sPhone, email: merged.sEmail, role: merged.sRole, managerId: merged.iManagerId, isActive: merged.sIs_active };
+        },
+        saveAction: 'updateuser',
+        onSaved: function () { fngetlistuser(); }
+    };
+}
 
 function deleteuser(id) {
-    if (!confirm('Are you sure you want to delete this user?')) return;
+    if (!confirm('Move this user to trash? You can restore it later from the Trash view.')) return;
     fetch('api.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'deleteuser', id: id })
+    })
+    .then(r => r.json())
+    .then(res => {
+        document.getElementById('message').innerHTML = res.message;
+        document.getElementById('message').className = res.status === 'success' ? 'add-message' : 'error-message';
+        fngetlistuser();
+    });
+}
+
+function restoreuser(id) {
+    fetch('api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restoreuser', id: id })
+    })
+    .then(r => r.json())
+    .then(res => {
+        document.getElementById('message').innerHTML = res.message;
+        document.getElementById('message').className = res.status === 'success' ? 'add-message' : 'error-message';
+        fngetlistuser();
+    });
+}
+
+function permanentlydeleteuser(id) {
+    if (!confirm('Permanently delete this user? This cannot be undone.')) return;
+    fetch('api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'permanentlydeleteuser', id: id })
     })
     .then(r => r.json())
     .then(res => {

@@ -10,7 +10,7 @@
 <link href="assets/css/crm-dark.css?v=1" rel="stylesheet" type="text/css" />
 <link href="assets/css/crm-dashboard.css?v=1" rel="stylesheet" type="text/css" />
 <link href="assets/css/crm-mobile.css?v=1" rel="stylesheet" type="text/css" />
-<link href="assets/css/optima.css?v=16" rel="stylesheet" type="text/css" />
+<link href="assets/css/optima.css?v=19" rel="stylesheet" type="text/css" />
 <?php if (empty($crmForceLightTheme)) : ?>
 <script>
 (function () {
@@ -28,6 +28,9 @@
     <!-- DataTables -->
     <link href="assets/libs/datatables.net-bs4/css/dataTables.bootstrap4.min.css" rel="stylesheet" type="text/css" />
     <link href="assets/libs/datatables.net-buttons-bs4/css/buttons.bootstrap4.min.css" rel="stylesheet" type="text/css" />
+
+    <!-- Select2 (searchable dropdowns) -->
+    <link href="assets/libs/select2/css/select2.min.css" rel="stylesheet" type="text/css" />
 
     <!-- Responsive datatable examples -->
     <link href="assets/libs/datatables.net-responsive-bs4/css/responsive.bootstrap4.min.css" rel="stylesheet" type="text/css" />

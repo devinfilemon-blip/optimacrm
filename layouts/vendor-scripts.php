@@ -9,6 +9,7 @@
 
 <script src="assets/libs/datatables.net/js/jquery.dataTables.min.js"></script>
 <script src="assets/libs/datatables.net-bs4/js/dataTables.bootstrap4.min.js"></script>
+<script src="assets/libs/select2/js/select2.min.js"></script>
 
 <script>
 (function () {
@@ -312,5 +313,36 @@ $(document).ready(function () {
     } else if ($('#datatable').length) {
         $('#datatable').on('draw.dt', function () { enhanceCrmActionButtons('#datatable'); });
     }
+
+    crmInitSelect2();
 });
+
+/**
+ * Turn every plain <select class="form-control"> into a searchable Select2
+ * dropdown ("search as per type"). DataTables' own "Show N entries" select
+ * is excluded so its compact toolbar layout isn't disturbed.
+ *
+ * Several forms populate a <select>'s <option>s asynchronously after this
+ * runs (company/status/recruiter/post dropdowns loaded via fetch). Select2
+ * re-reads its element's live <option> list whenever it re-renders, so those
+ * pages just need to call crmRefreshSelect2(selectEl) once their options
+ * (and the "selected" one, for edit pages) are in place.
+ */
+function crmInitSelect2(scope) {
+    if (!$.fn.select2) return;
+    var $scope = scope ? $(scope) : $(document);
+    $scope.find('select.form-control').not('.select2-hidden-accessible').not('.dataTables_length select').each(function () {
+        $(this).select2({
+            width: '100%',
+            dropdownParent: $(this).closest('.modal').length ? $(this).closest('.modal') : $(document.body)
+        });
+    });
+}
+
+function crmRefreshSelect2(selectEl) {
+    if (!$.fn.select2 || !selectEl) return;
+    var $el = $(selectEl);
+    if (!$el.hasClass('select2-hidden-accessible')) { crmInitSelect2($el); return; }
+    $el.trigger('change.select2');
+}
 </script>

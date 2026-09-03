@@ -294,6 +294,7 @@ function loadCompanyDropdown(selected) {
             if (selected && parseInt(selected) === parseInt(c.iCompanyId)) opt.selected = true;
             sel.appendChild(opt);
         });
+        crmRefreshSelect2(sel);
     });
 }
 
@@ -314,6 +315,7 @@ function loadSourceDropdown(selected) {
             if (selected && selected === s.sSource) opt.selected = true;
             sel.appendChild(opt);
         });
+        crmRefreshSelect2(sel);
     });
 }
 
@@ -334,6 +336,7 @@ function loadRequirementDropdown(selected) {
             if (selected && parseInt(selected) === parseInt(r.iReqId)) opt.selected = true;
             sel.appendChild(opt);
         });
+        crmRefreshSelect2(sel);
     });
 }
 
@@ -350,7 +353,10 @@ function recalcGst() {
 }
 
 document.getElementById('charges').addEventListener('input', recalcGst);
-document.getElementById('gstPercent').addEventListener('change', recalcGst);
+// jQuery's .on(), not addEventListener: Select2 fires its change
+// notifications through jQuery's event system, which a native
+// addEventListener('change', ...) listener never sees.
+$('#gstPercent').on('change', recalcGst);
 
 function loadPlacement() {
     loadCompanyDropdown(null);

@@ -89,7 +89,8 @@ if ($annualCtc <= 0) {
 }
 $pct = $annualCtc > 0 ? round(($charges / $annualCtc) * 100, 2) : 0;
 
-$descLines = ['Recruitment consulting charges for ' . $candidateName];
+$joiningCompany = $placement['sCompanyName'];
+$descLines = ['Recruitment consulting charges for ' . $candidateName . ($joiningCompany ? ' joining at ' . $joiningCompany : '')];
 if ($annualCtc > 0) {
     $descLines[] = $pct . '% of Annual CTC (' . money($annualCtc) . '/-)';
 }

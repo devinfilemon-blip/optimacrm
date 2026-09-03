@@ -15,8 +15,9 @@
                 <div class="row">
                     <div class="col-12">
                         <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                            <h4 class="mb-sm-0 font-size-18">Candidates &amp; Placements</h4>
-                            <div class="page-title-right">
+                            <h4 class="mb-sm-0 font-size-18" id="pageTitle">Candidates &amp; Placements</h4>
+                            <div class="page-title-right" id="pageActions">
+                                <a href="list-placement.php?trashed=1" class="btn btn-outline-secondary btn-sm"><i class="bx bx-trash"></i> Trash</a>
                                 <a href="add-placement.php" class="btn btn-primary btn-sm"><i class="bx bx-plus"></i> Add Placement</a>
                             </div>
                         </div>
@@ -95,30 +96,48 @@ function getPeriodRange(period) {
     return { start: ymd(start), end: ymd(end) };
 }
 
+var CRM_TRASH_MODE = new URLSearchParams(window.location.search).get('trashed') === '1';
 var placementRowsById = {};
+
+if (CRM_TRASH_MODE) {
+    document.getElementById('pageTitle').textContent = 'Candidates & Placements — Trash';
+    document.getElementById('pageActions').innerHTML = '<a href="list-placement.php" class="btn btn-primary btn-sm"><i class="bx bx-arrow-back"></i> Back to List</a>';
+}
+
 function fngetlistplacement() {
     $.ajax({
         url: 'api.php',
         method: 'POST',
         contentType: 'application/json',
-        data: JSON.stringify({ action: 'fngetlistplacement' }),
+        data: JSON.stringify({ action: CRM_TRASH_MODE ? 'fngetlisttrashplacement' : 'fngetlistplacement' }),
         success: function (response) {
             if (response.status === 'success') {
                 var rows = '';
                 var data = response.data;
-                var params = new URLSearchParams(window.location.search);
-                if (params.get('pendingOnly') === '1') {
-                    data = data.filter(function (p) { return parseFloat(p.dAmount || 0) > parseFloat(p.dRecAmount || 0); });
-                }
-                var period = params.get('period');
-                var dateField = params.get('dateField');
-                if (period && dateField) {
-                    var range = getPeriodRange(period);
-                    data = data.filter(function (p) { return p[dateField] && p[dateField] >= range.start && p[dateField] <= range.end; });
+                if (!CRM_TRASH_MODE) {
+                    var params = new URLSearchParams(window.location.search);
+                    if (params.get('pendingOnly') === '1') {
+                        data = data.filter(function (p) { return parseFloat(p.dAmount || 0) > parseFloat(p.dRecAmount || 0); });
+                    }
+                    var period = params.get('period');
+                    var dateField = params.get('dateField');
+                    if (period && dateField) {
+                        var range = getPeriodRange(period);
+                        data = data.filter(function (p) { return p[dateField] && p[dateField] >= range.start && p[dateField] <= range.end; });
+                    }
                 }
                 placementRowsById = {};
                 data.forEach(function (p) {
                     placementRowsById[p.iPlacementId] = p;
+                    var actions = CRM_TRASH_MODE
+                        ? crmActionMenu([
+                            { label: 'Restore', icon: 'bx-undo', onclick: 'restoreplacement(' + p.iPlacementId + ')' },
+                            { label: 'Delete Forever', icon: 'bx-trash', danger: true, onclick: 'permanentlydeleteplacement(' + p.iPlacementId + ')' }
+                          ])
+                        : crmActionMenu([
+                            { label: 'Edit', icon: 'bx-edit-alt', href: 'add-placement.php?id=' + p.iPlacementId },
+                            { label: 'Delete', icon: 'bx-trash', danger: true, onclick: 'deleteplacement(' + p.iPlacementId + ')' }
+                          ]);
                     rows += '<tr data-id="' + p.iPlacementId + '">' +
                         '<td>' + esc(p.sSelectionNo) + '</td>' +
                         '<td>' + esc(p.sCandidateName) + '</td>' +
@@ -135,15 +154,15 @@ function fngetlistplacement() {
                         '<td>' + (p.sInvoiceNo ?
                             '<a href="generate-invoice.php?id=' + p.iPlacementId + '" target="_blank" class="btn btn-info btn-sm"><i class="bx bx-file"></i> Invoice</a>' :
                             '<span class="text-muted small">Not billed</span>') + '</td>' +
-                        crmActionMenu([
-                            { label: 'Edit', icon: 'bx-edit-alt', href: 'add-placement.php?id=' + p.iPlacementId },
-                            { label: 'Delete', icon: 'bx-trash', danger: true, onclick: 'deleteplacement(' + p.iPlacementId + ')' }
-                        ]) +
+                        actions +
                         '</tr>';
                 });
                 if ($.fn.DataTable.isDataTable('#datatable')) $('#datatable').DataTable().destroy();
-                $('#datatable tbody').html(rows);
-                $('#datatable').DataTable({ order: [[0, 'desc']] });
+                // A lone colspan "no records" row confuses DataTables' column
+                // auto-detection (it indexes cells off the first tbody row),
+                // so only initialize the table when there's real data to show.
+                $('#datatable tbody').html(rows || '<tr><td colspan="12">' + (CRM_TRASH_MODE ? 'Trash is empty' : 'No placements found') + '</td></tr>');
+                if (rows) $('#datatable').DataTable({ order: [[0, 'desc']] });
             } else {
                 $('#datatable tbody').html('<tr><td colspan="12">No placements found</td></tr>');
             }
@@ -152,11 +171,40 @@ function fngetlistplacement() {
 }
 
 function deleteplacement(id) {
-    if (!confirm('Are you sure you want to delete this placement?')) return;
+    if (!confirm('Move this placement to trash? You can restore it later from the Trash view.')) return;
     fetch('api.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'deleteplacement', id: id })
+    })
+    .then(r => r.json())
+    .then(res => {
+        document.getElementById('message').innerHTML = res.message;
+        document.getElementById('message').className = res.status === 'success' ? 'add-message' : 'error-message';
+        fngetlistplacement();
+    });
+}
+
+function restoreplacement(id) {
+    fetch('api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restoreplacement', id: id })
+    })
+    .then(r => r.json())
+    .then(res => {
+        document.getElementById('message').innerHTML = res.message;
+        document.getElementById('message').className = res.status === 'success' ? 'add-message' : 'error-message';
+        fngetlistplacement();
+    });
+}
+
+function permanentlydeleteplacement(id) {
+    if (!confirm('Permanently delete this placement? This also removes any uploaded resume file and cannot be undone.')) return;
+    fetch('api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'permanentlydeleteplacement', id: id })
     })
     .then(r => r.json())
     .then(res => {
@@ -179,37 +227,40 @@ function withPlacementCompanyOptions(place) {
         });
 }
 
-window.crmInlineEdit = {
-    getRowId: function ($row) { return parseInt($row.data('id'), 10); },
-    getFullRow: function (id) { return placementRowsById[id]; },
-    fields: [
-        { cellIndex: 1, key: 'sCandidateName', type: 'text' },
-        { cellIndex: 2, key: 'iCompanyId', type: 'select', options: function (place) { withPlacementCompanyOptions(place); } },
-        { cellIndex: 3, key: 'sPost', type: 'text' },
-        { cellIndex: 4, key: 'dJoiningDate', type: 'date' },
-        { cellIndex: 5, key: 'sJoiningStatus', type: 'select', options: [
-            { value: 'Pending', label: 'Pending' },
-            { value: 'Amount Received', label: 'Amount Received' },
-            { value: 'Job Left', label: 'Job Left' },
-            { value: 'Not Joined', label: 'Not Joined' }
-        ] },
-        { cellIndex: 7, key: 'dRecAmount', type: 'number' },
-        { cellIndex: 8, key: 'sWorkedBy', type: 'text' }
-    ],
-    toPayload: function (merged, id) {
-        return {
-            id: id, reqId: merged.iReqId, type: merged.sType, candidateName: merged.sCandidateName, mobile: merged.sMobile,
-            post: merged.sPost, companyId: merged.iCompanyId, salary: merged.dSalary, joiningDate: merged.dJoiningDate,
-            joiningStatus: merged.sJoiningStatus, workedBy: merged.sWorkedBy, source: merged.sSource, remark: merged.sRemark,
-            invoiceDate: merged.dInvoiceDate, invoiceNo: merged.sInvoiceNo, charges: merged.dCharges, cgst: merged.dCgst,
-            sgst: merged.dSgst, recAmount: merged.dRecAmount, paymentRecDate: merged.dPaymentRecDate, paymentMode: merged.sPaymentMode,
-            tds: merged.dTds, ipcInvDate: merged.dIpcInvDate, ipcInvNo: merged.sIpcInvNo, ipcInvAmt: merged.dIpcInvAmt,
-            paymentDate: merged.dPaymentDate, paymentDetails: merged.sPaymentDetails, ref1: merged.sRef1, ref2: merged.sRef2
-        };
-    },
-    saveAction: 'updateplacement',
-    onSaved: function () { fngetlistplacement(); }
-};
+// Trashed records aren't inline-editable — restore them first.
+if (!CRM_TRASH_MODE) {
+    window.crmInlineEdit = {
+        getRowId: function ($row) { return parseInt($row.data('id'), 10); },
+        getFullRow: function (id) { return placementRowsById[id]; },
+        fields: [
+            { cellIndex: 1, key: 'sCandidateName', type: 'text' },
+            { cellIndex: 2, key: 'iCompanyId', type: 'select', options: function (place) { withPlacementCompanyOptions(place); } },
+            { cellIndex: 3, key: 'sPost', type: 'text' },
+            { cellIndex: 4, key: 'dJoiningDate', type: 'date' },
+            { cellIndex: 5, key: 'sJoiningStatus', type: 'select', options: [
+                { value: 'Pending', label: 'Pending' },
+                { value: 'Amount Received', label: 'Amount Received' },
+                { value: 'Job Left', label: 'Job Left' },
+                { value: 'Not Joined', label: 'Not Joined' }
+            ] },
+            { cellIndex: 7, key: 'dRecAmount', type: 'number' },
+            { cellIndex: 8, key: 'sWorkedBy', type: 'text' }
+        ],
+        toPayload: function (merged, id) {
+            return {
+                id: id, reqId: merged.iReqId, type: merged.sType, candidateName: merged.sCandidateName, mobile: merged.sMobile,
+                post: merged.sPost, companyId: merged.iCompanyId, salary: merged.dSalary, joiningDate: merged.dJoiningDate,
+                joiningStatus: merged.sJoiningStatus, workedBy: merged.sWorkedBy, source: merged.sSource, remark: merged.sRemark,
+                invoiceDate: merged.dInvoiceDate, invoiceNo: merged.sInvoiceNo, charges: merged.dCharges, cgst: merged.dCgst,
+                sgst: merged.dSgst, recAmount: merged.dRecAmount, paymentRecDate: merged.dPaymentRecDate, paymentMode: merged.sPaymentMode,
+                tds: merged.dTds, ipcInvDate: merged.dIpcInvDate, ipcInvNo: merged.sIpcInvNo, ipcInvAmt: merged.dIpcInvAmt,
+                paymentDate: merged.dPaymentDate, paymentDetails: merged.sPaymentDetails, ref1: merged.sRef1, ref2: merged.sRef2
+            };
+        },
+        saveAction: 'updateplacement',
+        onSaved: function () { fngetlistplacement(); }
+    };
+}
 
 $(document).ready(function () { fngetlistplacement(); });
 </script>
