@@ -219,7 +219,7 @@ body.crm-dark .optima-card-clickable:hover { box-shadow: 0 8px 22px rgba(0,0,0,0
 }
 .optima-combo-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
     gap: 14px;
 }
 .optima-combo-item {
@@ -234,14 +234,20 @@ body.crm-dark .optima-card-clickable:hover { box-shadow: 0 8px 22px rgba(0,0,0,0
 .optima-combo-item.tone-blue { background: rgba(77, 123, 255, 0.08); }
 .optima-combo-item.tone-cyan { background: rgba(20, 184, 196, 0.08); }
 .optima-combo-item.tone-rose { background: rgba(224, 53, 91, 0.08); }
+.optima-combo-item.tone-mint { background: rgba(79, 210, 192, 0.1); }
+.optima-combo-item.tone-amber { background: rgba(245, 165, 36, 0.1); }
+.optima-combo-item.tone-purple { background: rgba(83, 48, 201, 0.08); }
 html.crm-dark .optima-combo-item.tone-blue, body.crm-dark .optima-combo-item.tone-blue { background: rgba(77, 123, 255, 0.14); }
 html.crm-dark .optima-combo-item.tone-cyan, body.crm-dark .optima-combo-item.tone-cyan { background: rgba(20, 184, 196, 0.14); }
 html.crm-dark .optima-combo-item.tone-rose, body.crm-dark .optima-combo-item.tone-rose { background: rgba(224, 53, 91, 0.14); }
+html.crm-dark .optima-combo-item.tone-mint, body.crm-dark .optima-combo-item.tone-mint { background: rgba(79, 210, 192, 0.16); }
+html.crm-dark .optima-combo-item.tone-amber, body.crm-dark .optima-combo-item.tone-amber { background: rgba(245, 165, 36, 0.16); }
+html.crm-dark .optima-combo-item.tone-purple, body.crm-dark .optima-combo-item.tone-purple { background: rgba(83, 48, 201, 0.16); }
 
 html.crm-dark .optima-combo-heading,
 body.crm-dark .optima-combo-heading { color: #94a3b8; }
 
-@media (max-width: 575px) {
+@media (max-width: 420px) {
     .optima-combo-grid { grid-template-columns: 1fr; }
 }
 .optima-stat-value { font-size: 26px; font-weight: 700; line-height: 1.1; margin: 0; white-space: nowrap; }

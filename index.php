@@ -22,12 +22,6 @@
                                 <p class="optima-dashboard-subtitle">Recruitment pipeline snapshot for <?php echo date('F Y'); ?></p>
                             </div>
                             <div class="page-title-right d-flex align-items-center gap-3">
-                                <select id="dashboardPeriod" class="form-select form-select-sm" style="width: auto;">
-                                    <option value="weekly">Weekly</option>
-                                    <option value="monthly" selected>Monthly</option>
-                                    <option value="quarterly">Quarterly</option>
-                                    <option value="yearly">Yearly</option>
-                                </select>
                                 <ol class="breadcrumb m-0">
                                     <li class="breadcrumb-item active">Welcome, <?php echo htmlspecialchars($_SESSION['username'] ?? 'User'); ?></li>
                                 </ol>
@@ -51,62 +45,120 @@
                     <div class="col-xl-9 col-md-6">
                         <div class="card optima-stat-card optima-combo-card h-100">
                             <div class="card-body optima-combo-body">
-                                <p class="optima-combo-heading">Requirement Pipeline <span id="periodLabelPipeline" class="text-muted" style="text-transform:none; font-weight:400;"></span></p>
+                                <p class="optima-combo-heading">Vacancy Overview</p>
                                 <div class="optima-combo-grid">
-                                    <div class="optima-combo-item tone-blue optima-card-clickable" id="cardTotalVacancy">
+                                    <div class="optima-combo-item tone-blue optima-card-clickable" data-href="list-requirement.php">
                                         <div class="optima-stat-icon bg-blue"><i class="bx bx-briefcase-alt-2"></i></div>
                                         <div class="optima-stat-text">
                                             <p class="optima-stat-value" id="statTotalVacancy">&mdash;</p>
                                             <p class="optima-stat-label">Total Vacancies</p>
                                         </div>
                                     </div>
-                                    <div class="optima-combo-item tone-cyan optima-card-clickable" id="cardSearching">
+                                    <div class="optima-combo-item tone-cyan optima-card-clickable" data-href="list-requirement.php?openOnly=1">
                                         <div class="optima-stat-icon bg-cyan"><i class="bx bx-search-alt"></i></div>
                                         <div class="optima-stat-text">
                                             <p class="optima-stat-value" id="statSearching">&mdash;</p>
-                                            <p class="optima-stat-label">Searching</p>
+                                            <p class="optima-stat-label">Searching / Open</p>
                                         </div>
                                     </div>
-                                    <div class="optima-combo-item tone-rose optima-card-clickable" id="cardClosed">
+                                    <div class="optima-combo-item tone-rose optima-card-clickable" data-href="list-requirement.php?closedOnly=1">
                                         <div class="optima-stat-icon bg-rose"><i class="bx bx-lock-alt"></i></div>
                                         <div class="optima-stat-text">
                                             <p class="optima-stat-value" id="statClosed">&mdash;</p>
                                             <p class="optima-stat-label">Closed</p>
                                         </div>
                                     </div>
+                                    <div class="optima-combo-item tone-mint optima-card-clickable" data-href="list-requirement.php?q=Selected">
+                                        <div class="optima-stat-icon bg-mint"><i class="bx bx-check-circle"></i></div>
+                                        <div class="optima-stat-text">
+                                            <p class="optima-stat-value" id="statSelected">&mdash;</p>
+                                            <p class="optima-stat-label">Selected Candidates</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-xl-4 col-md-6">
-                        <div class="card optima-stat-card accent-rose h-100 optima-card-clickable" id="cardSelected">
-                            <div class="card-body">
-                                <div class="optima-stat-icon bg-rose"><i class="bx bx-check-circle"></i></div>
-                                <div class="optima-stat-text">
-                                    <p class="optima-stat-value" id="statSelected">&mdash;</p>
-                                    <p class="optima-stat-label">Selected <span id="periodLabelSelected" class="text-muted"></span></p>
+                </div>
+
+                <div class="row g-4 mb-4">
+                    <div class="col-xl-6">
+                        <div class="card optima-stat-card optima-combo-card h-100">
+                            <div class="card-body optima-combo-body">
+                                <p class="optima-combo-heading">Placement Tracking</p>
+                                <div class="optima-combo-grid">
+                                    <div class="optima-combo-item tone-mint optima-card-clickable" data-href="list-placement.php?period=monthly&amp;dateField=dJoiningDate">
+                                        <div class="optima-stat-icon bg-mint"><i class="bx bx-user-check"></i></div>
+                                        <div class="optima-stat-text">
+                                            <p class="optima-stat-value" id="statPlacementsMonth">&mdash;</p>
+                                            <p class="optima-stat-label">This Month</p>
+                                        </div>
+                                    </div>
+                                    <div class="optima-combo-item tone-purple optima-card-clickable" data-href="list-placement.php">
+                                        <div class="optima-stat-icon bg-purple"><i class="bx bx-group"></i></div>
+                                        <div class="optima-stat-text">
+                                            <p class="optima-stat-value" id="statPlacementsTillDate">&mdash;</p>
+                                            <p class="optima-stat-label">Till Date</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-xl-4 col-md-6">
-                        <div class="card optima-stat-card accent-mint h-100 optima-card-clickable" id="cardPlacements">
+                    <div class="col-xl-6">
+                        <div class="card optima-stat-card accent-blue h-100 optima-card-clickable" data-href="list-reminder.php?dueOnly=1">
                             <div class="card-body">
-                                <div class="optima-stat-icon bg-mint"><i class="bx bx-user-check"></i></div>
+                                <div class="optima-stat-icon bg-blue"><i class="bx bx-error-circle"></i></div>
                                 <div class="optima-stat-text">
-                                    <p class="optima-stat-value" id="statPlacements">&mdash;</p>
-                                    <p class="optima-stat-label">Placements / Openings <span id="periodLabelPlacements" class="text-muted"></span></p>
+                                    <p class="optima-stat-value" id="statDueReminders">&mdash;</p>
+                                    <p class="optima-stat-label">Due / Overdue Reminders</p>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-xl-4 col-md-6">
-                        <div class="card optima-stat-card accent-amber h-100 optima-card-clickable" id="cardRevenue">
-                            <div class="card-body">
-                                <div class="optima-stat-icon bg-amber"><i class="bx bx-rupee"></i></div>
-                                <div class="optima-stat-text">
-                                    <p class="optima-stat-value" id="statRevenue">&mdash;</p>
-                                    <p class="optima-stat-label">Revenue Received <span id="periodLabelRevenue" class="text-muted"></span></p>
+                </div>
+
+                <div class="row g-4 mb-4">
+                    <div class="col-xl-12">
+                        <div class="card optima-stat-card optima-combo-card">
+                            <div class="card-body optima-combo-body">
+                                <p class="optima-combo-heading">Revenue &amp; Financial</p>
+                                <div class="optima-combo-grid">
+                                    <div class="optima-combo-item tone-mint optima-card-clickable" data-href="list-placement.php?period=monthly&amp;dateField=dPaymentRecDate">
+                                        <div class="optima-stat-icon bg-mint"><i class="bx bx-trending-up"></i></div>
+                                        <div class="optima-stat-text">
+                                            <p class="optima-stat-value" id="statRevenueMonth">&mdash;</p>
+                                            <p class="optima-stat-label">Revenue This Month</p>
+                                        </div>
+                                    </div>
+                                    <div class="optima-combo-item tone-blue optima-card-clickable" data-href="list-placement.php">
+                                        <div class="optima-stat-icon bg-blue"><i class="bx bx-rupee"></i></div>
+                                        <div class="optima-stat-text">
+                                            <p class="optima-stat-value" id="statRevenueTillDate">&mdash;</p>
+                                            <p class="optima-stat-label">Revenue Till Date</p>
+                                        </div>
+                                    </div>
+                                    <div class="optima-combo-item tone-amber optima-card-clickable" data-href="list-placement.php">
+                                        <div class="optima-stat-icon bg-amber"><i class="bx bx-receipt"></i></div>
+                                        <div class="optima-stat-text">
+                                            <p class="optima-stat-value" id="statInvoiced">&mdash;</p>
+                                            <p class="optima-stat-label">Total Invoiced</p>
+                                        </div>
+                                    </div>
+                                    <div class="optima-combo-item tone-cyan optima-card-clickable" data-href="list-placement.php">
+                                        <div class="optima-stat-icon bg-cyan"><i class="bx bx-check-double"></i></div>
+                                        <div class="optima-stat-text">
+                                            <p class="optima-stat-value" id="statReceived">&mdash;</p>
+                                            <p class="optima-stat-label">Amount Received</p>
+                                        </div>
+                                    </div>
+                                    <div class="optima-combo-item tone-rose optima-card-clickable" data-href="list-outstanding-invoice.php">
+                                        <div class="optima-stat-icon bg-rose"><i class="bx bx-wallet"></i></div>
+                                        <div class="optima-stat-text">
+                                            <p class="optima-stat-value" id="statPending">&mdash;</p>
+                                            <p class="optima-stat-label">Amount Pending</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -215,31 +267,6 @@
                     </div>
                 </div>
 
-                <div class="row g-4">
-                    <div class="col-xl-6">
-                        <div class="card optima-stat-card accent-purple optima-card-clickable" data-href="list-placement.php?pendingOnly=1">
-                            <div class="card-body">
-                                <div class="optima-stat-icon bg-purple"><i class="bx bx-wallet"></i></div>
-                                <div class="optima-stat-text">
-                                    <p class="optima-stat-value" id="statPending">&mdash;</p>
-                                    <p class="optima-stat-label">Pending Receivables</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-xl-6">
-                        <div class="card optima-stat-card accent-blue optima-card-clickable" data-href="list-reminder.php?dueOnly=1">
-                            <div class="card-body">
-                                <div class="optima-stat-icon bg-blue"><i class="bx bx-calendar-exclamation"></i></div>
-                                <div class="optima-stat-text">
-                                    <p class="optima-stat-value" id="statDueReminders">&mdash;</p>
-                                    <p class="optima-stat-label">Due / Overdue Reminders</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
             </div>
         </div>
         <?php include 'layouts/footer.php'; ?>
@@ -288,40 +315,29 @@ function overdueTier(status, days) {
     return 0;
 }
 
-function getSelectedPeriod() {
-    var stored = null;
-    try { stored = localStorage.getItem('optimaDashboardPeriod'); } catch (e) {}
-    return stored || 'monthly';
-}
-
 function loadDashboard() {
-    var period = getSelectedPeriod();
     fetch('api.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'dashboardStats', period: period })
+        body: JSON.stringify({ action: 'dashboardStats' })
     })
     .then(r => r.json())
     .then(res => {
         if (res.status !== 'success') return;
         var d = res.data;
         $('#statCompanies').text(d.companies);
-        $('#statTotalVacancy').text(d.totalVacancy);
-        $('#statSearching').text(d.searching);
-        $('#statClosed').text(d.closed);
-        $('#statSelected').text(d.selected);
-        $('#statPlacements').text(d.placementsThisMonth + ' / ' + d.openingsThisMonth);
-        $('#statRevenue').text(fmtCurrency(d.revenueThisMonth));
-        $('#statPending').text(fmtCurrency(d.pendingReceivables));
+        $('#statTotalVacancy').text(d.totalVacancies);
+        $('#statSearching').text(d.openVacancies);
+        $('#statClosed').text(d.closedVacancies);
+        $('#statSelected').text(d.selectedCandidates);
+        $('#statPlacementsMonth').text(d.placementsThisMonth);
+        $('#statPlacementsTillDate').text(d.placementsTillDate);
+        $('#statRevenueMonth').text(fmtCurrency(d.revenueThisMonth));
+        $('#statRevenueTillDate').text(fmtCurrency(d.revenueTillDate));
+        $('#statInvoiced').text(fmtCurrency(d.totalInvoicedAmount));
+        $('#statReceived').text(fmtCurrency(d.amountReceived));
+        $('#statPending').text(fmtCurrency(d.amountPending));
         $('#statDueReminders').text(d.dueReminders);
-        $('#periodLabelPlacements, #periodLabelRevenue, #periodLabelSelected').text(d.periodLabel ? '(' + d.periodLabel + ')' : '');
-        $('#periodLabelPipeline').text(d.periodLabel ? '— ' + d.periodLabel : '');
-        $('#cardPlacements').data('href', 'list-placement.php?period=' + period + '&dateField=dJoiningDate');
-        $('#cardRevenue').data('href', 'list-placement.php?period=' + period + '&dateField=dPaymentRecDate');
-        $('#cardTotalVacancy').data('href', 'list-requirement.php?openOnly=1&period=' + period);
-        $('#cardSearching').data('href', 'list-requirement.php?q=Searching&period=' + period);
-        $('#cardClosed').data('href', 'list-requirement.php?q=' + encodeURIComponent('Closed by Co.') + '&period=' + period);
-        $('#cardSelected').data('href', 'list-requirement.php?q=Selected&period=' + period);
 
         var reqRows = '';
         (d.recentRequirements || []).forEach(function (r) {
@@ -452,17 +468,10 @@ function renderTrendChart(rows) {
 }
 
 $(document).ready(function () {
-    $('#dashboardPeriod').val(getSelectedPeriod());
     loadDashboard();
     window.addEventListener('crm-theme-changed', function () { loadDashboard(); });
 
-    $('#dashboardPeriod').on('change', function () {
-        try { localStorage.setItem('optimaDashboardPeriod', this.value); } catch (e) {}
-        loadDashboard();
-    });
-
     $(document).on('click', '.optima-card-clickable', function (e) {
-        if ($(e.target).closest('select').length) return;
         var href = $(this).data('href');
         if (href) window.location.href = href;
     });

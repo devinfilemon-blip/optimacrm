@@ -74,7 +74,10 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                                     <div class="col-md-3">
                                         <div class="mb-3">
                                             <label class="form-label">Education</label>
-                                            <input type="text" class="form-control" id="education">
+                                            <div class="d-flex gap-2">
+                                                <select class="form-control" id="education"><option value="">Loading&hellip;</option></select>
+                                                <button type="button" class="btn btn-outline-primary flex-shrink-0" onclick="openAddEducationModal();" title="Add new education"><i class="bx bx-plus"></i></button>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="col-md-3">
@@ -160,6 +163,28 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                                 <button type="button" class="btn btn-primary" onclick="saveNewPost();">Save</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal fade" id="addEducationModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Add Education</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div><span id="addEducationMessage"></span></div>
+                                <div class="mb-0">
+                                    <label class="form-label">Education name</label>
+                                    <input type="text" class="form-control" id="newEducationName" placeholder="e.g. B.Tech">
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" onclick="saveNewEducation();">Save</button>
                             </div>
                         </div>
                     </div>
@@ -303,11 +328,69 @@ function saveNewPost() {
     });
 }
 
+function loadEducationDropdown(selected) {
+    return fetch('api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'fngetlisteducation' })
+    })
+    .then(r => r.json())
+    .then(res => {
+        var sel = document.getElementById('education');
+        sel.innerHTML = '<option value="">-- Select Education --</option>';
+        var found = false;
+        (res.data || []).forEach(function (s) {
+            var opt = document.createElement('option');
+            opt.value = s.sEducation;
+            opt.textContent = s.sEducation;
+            if (selected && selected === s.sEducation) { opt.selected = true; found = true; }
+            sel.appendChild(opt);
+        });
+        if (selected && !found) {
+            var opt = document.createElement('option');
+            opt.value = selected;
+            opt.textContent = selected;
+            opt.selected = true;
+            sel.appendChild(opt);
+        }
+        crmRefreshSelect2(sel);
+    });
+}
+
+function openAddEducationModal() {
+    document.getElementById('newEducationName').value = '';
+    document.getElementById('addEducationMessage').innerHTML = '';
+    new bootstrap.Modal(document.getElementById('addEducationModal')).show();
+}
+
+function saveNewEducation() {
+    var name = document.getElementById('newEducationName').value.trim();
+    if (!name) { alert('Enter an education name.'); return; }
+    fetch('api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'addeducation', education: name })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.status !== 'success') {
+            var el = document.getElementById('addEducationMessage');
+            el.innerHTML = res.message; el.className = 'error-message';
+            return;
+        }
+        loadEducationDropdown(name).then(function () {
+            var modalEl = document.getElementById('addEducationModal');
+            bootstrap.Modal.getInstance(modalEl).hide();
+        });
+    });
+}
+
 function loadRequirement() {
     loadCompanyDropdown(null, function () {});
     loadStatusDropdown(null);
     loadRecruiterDropdown(null);
     loadPostDropdown(null);
+    loadEducationDropdown(null);
 
     if (!editId) return;
     fetch('api.php', {
@@ -326,7 +409,7 @@ function loadRequirement() {
         document.getElementById('noOfVacancy').value = d.iNoOfVacancy || 1;
         document.getElementById('type').value = d.sType || 'NT';
         document.getElementById('location').value = d.sLocation || '';
-        document.getElementById('education').value = d.sEducation || '';
+        loadEducationDropdown(d.sEducation);
         document.getElementById('experience').value = d.sExperience || '';
         document.getElementById('salary').value = d.sSalary || '';
         document.getElementById('openDate').value = d.dOpenDate || '';

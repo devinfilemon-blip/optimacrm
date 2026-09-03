@@ -270,88 +270,61 @@ if ($action === 'reportsData') {
 if ($action === 'dashboardStats') {
     $stats = [];
 
-    $period = reqStr($inputData, 'period', 'monthly');
-    $today = new DateTime();
-    switch ($period) {
-        case 'weekly':
-            $periodStart = (clone $today)->modify('monday this week');
-            $periodEnd = (clone $periodStart)->modify('+6 days');
-            $periodLabel = 'This Week';
-            break;
-        case 'quarterly':
-            $qStartMonth = intdiv((int) $today->format('n') - 1, 3) * 3 + 1;
-            $periodStart = new DateTime($today->format('Y') . '-' . str_pad($qStartMonth, 2, '0', STR_PAD_LEFT) . '-01');
-            $periodEnd = (clone $periodStart)->modify('+3 months')->modify('-1 day');
-            $periodLabel = 'This Quarter';
-            break;
-        case 'yearly':
-            $periodStart = new DateTime($today->format('Y') . '-01-01');
-            $periodEnd = new DateTime($today->format('Y') . '-12-31');
-            $periodLabel = 'This Year';
-            break;
-        case 'monthly':
-        default:
-            $period = 'monthly';
-            $periodStart = new DateTime($today->format('Y-m') . '-01');
-            $periodEnd = (clone $periodStart)->modify('+1 month')->modify('-1 day');
-            $periodLabel = 'This Month';
-            break;
-    }
-    $periodStartStr = $periodStart->format('Y-m-d');
-    $periodEndStr = $periodEnd->format('Y-m-d');
-    $stats['period'] = $period;
-    $stats['periodLabel'] = $periodLabel;
+    $monthStartStr = date('Y-m-01');
+    $monthEndStr = date('Y-m-t');
 
-    $r = mysqli_query($link, "SELECT COUNT(*) c FROM tblcompany WHERE sStatus = 'Active'");
+    // ---- Vacancy Overview (all-time snapshot of the requirement pipeline) ----
+    $r = mysqli_query($link, "SELECT COUNT(*) c FROM tblrequirement WHERE dDeletedAt IS NULL");
+    $stats['totalVacancies'] = (int) mysqli_fetch_assoc($r)['c'];
+
+    // "Open" mirrors the openOnly filter on the requirement list (everything
+    // still actionable — only a company close-out or a no-join ends it).
+    $r = mysqli_query($link, "SELECT COUNT(*) c FROM tblrequirement WHERE dDeletedAt IS NULL AND sStatus NOT IN ('Closed by Co.', 'Not Joining')");
+    $stats['openVacancies'] = (int) mysqli_fetch_assoc($r)['c'];
+
+    $r = mysqli_query($link, "SELECT COUNT(*) c FROM tblrequirement WHERE dDeletedAt IS NULL AND sStatus IN ('Closed by Co.', 'Not Joining')");
+    $stats['closedVacancies'] = (int) mysqli_fetch_assoc($r)['c'];
+
+    $r = mysqli_query($link, "SELECT COUNT(*) c FROM tblrequirement WHERE dDeletedAt IS NULL AND sStatus = 'Selected'");
+    $stats['selectedCandidates'] = (int) mysqli_fetch_assoc($r)['c'];
+
+    $r = mysqli_query($link, "SELECT COUNT(*) c FROM tblcompany WHERE sStatus = 'Active' AND dDeletedAt IS NULL");
     $stats['companies'] = (int) mysqli_fetch_assoc($r)['c'];
 
-    $stmt = mysqli_prepare($link, "SELECT COALESCE(SUM(iNoOfVacancy),0) c FROM tblrequirement WHERE sStatus NOT IN ('Closed by Co.', 'Not Joining') AND dOpenDate BETWEEN ? AND ?");
-    mysqli_stmt_bind_param($stmt, "ss", $periodStartStr, $periodEndStr);
-    mysqli_stmt_execute($stmt);
-    $stats['totalVacancy'] = (int) mysqli_stmt_get_result($stmt)->fetch_assoc()['c'];
-
-    $stmt = mysqli_prepare($link, "SELECT COUNT(*) c FROM tblrequirement WHERE sStatus = 'Searching' AND dOpenDate BETWEEN ? AND ?");
-    mysqli_stmt_bind_param($stmt, "ss", $periodStartStr, $periodEndStr);
-    mysqli_stmt_execute($stmt);
-    $stats['searching'] = (int) mysqli_stmt_get_result($stmt)->fetch_assoc()['c'];
-
-    $stmt = mysqli_prepare($link, "SELECT COUNT(*) c FROM tblrequirement WHERE sStatus = 'Closed by Co.' AND dOpenDate BETWEEN ? AND ?");
-    mysqli_stmt_bind_param($stmt, "ss", $periodStartStr, $periodEndStr);
-    mysqli_stmt_execute($stmt);
-    $stats['closed'] = (int) mysqli_stmt_get_result($stmt)->fetch_assoc()['c'];
-
-    $stmt = mysqli_prepare($link, "SELECT COUNT(*) c FROM tblrequirement WHERE sStatus = 'Selected' AND dOpenDate BETWEEN ? AND ?");
-    mysqli_stmt_bind_param($stmt, "ss", $periodStartStr, $periodEndStr);
-    mysqli_stmt_execute($stmt);
-    $stats['selected'] = (int) mysqli_stmt_get_result($stmt)->fetch_assoc()['c'];
-
-    $stmt = mysqli_prepare($link, "SELECT COUNT(*) c FROM tblplacement WHERE dJoiningDate BETWEEN ? AND ?");
-    mysqli_stmt_bind_param($stmt, "ss", $periodStartStr, $periodEndStr);
+    // ---- Placement Tracking ----
+    $stmt = mysqli_prepare($link, "SELECT COUNT(*) c FROM tblplacement WHERE dDeletedAt IS NULL AND dJoiningDate BETWEEN ? AND ?");
+    mysqli_stmt_bind_param($stmt, "ss", $monthStartStr, $monthEndStr);
     mysqli_stmt_execute($stmt);
     $stats['placementsThisMonth'] = (int) mysqli_stmt_get_result($stmt)->fetch_assoc()['c'];
 
-    $stmt = mysqli_prepare($link, "SELECT COALESCE(SUM(iNoOfVacancy),0) c FROM tblrequirement WHERE dOpenDate BETWEEN ? AND ?");
-    mysqli_stmt_bind_param($stmt, "ss", $periodStartStr, $periodEndStr);
-    mysqli_stmt_execute($stmt);
-    $stats['openingsThisMonth'] = (int) mysqli_stmt_get_result($stmt)->fetch_assoc()['c'];
+    $r = mysqli_query($link, "SELECT COUNT(*) c FROM tblplacement WHERE dDeletedAt IS NULL");
+    $stats['placementsTillDate'] = (int) mysqli_fetch_assoc($r)['c'];
 
-    $stmt = mysqli_prepare($link, "SELECT COALESCE(SUM(dRecAmount),0) s FROM tblplacement WHERE dPaymentRecDate BETWEEN ? AND ?");
-    mysqli_stmt_bind_param($stmt, "ss", $periodStartStr, $periodEndStr);
+    // ---- Revenue & Financial ----
+    $stmt = mysqli_prepare($link, "SELECT COALESCE(SUM(dRecAmount),0) s FROM tblplacement WHERE dDeletedAt IS NULL AND dPaymentRecDate BETWEEN ? AND ?");
+    mysqli_stmt_bind_param($stmt, "ss", $monthStartStr, $monthEndStr);
     mysqli_stmt_execute($stmt);
     $stats['revenueThisMonth'] = (float) mysqli_stmt_get_result($stmt)->fetch_assoc()['s'];
 
-    $r = mysqli_query($link, "SELECT COALESCE(SUM(dAmount - dRecAmount),0) s FROM tblplacement WHERE dAmount > dRecAmount");
-    $stats['pendingReceivables'] = (float) mysqli_fetch_assoc($r)['s'];
+    $r = mysqli_query($link, "SELECT COALESCE(SUM(dRecAmount),0) s FROM tblplacement WHERE dDeletedAt IS NULL");
+    $stats['revenueTillDate'] = (float) mysqli_fetch_assoc($r)['s'];
+    $stats['amountReceived'] = $stats['revenueTillDate'];
+
+    $r = mysqli_query($link, "SELECT COALESCE(SUM(dAmount),0) s FROM tblplacement WHERE dDeletedAt IS NULL");
+    $stats['totalInvoicedAmount'] = (float) mysqli_fetch_assoc($r)['s'];
+
+    $r = mysqli_query($link, "SELECT COALESCE(SUM(dAmount - dRecAmount),0) s FROM tblplacement WHERE dDeletedAt IS NULL AND dAmount > dRecAmount");
+    $stats['amountPending'] = (float) mysqli_fetch_assoc($r)['s'];
 
     $r = mysqli_query($link, "SELECT COUNT(*) c FROM tblreminders WHERE sStatus = 'Pending' AND sDate <= CURDATE()");
     $stats['dueReminders'] = (int) mysqli_fetch_assoc($r)['c'];
 
     $statusCounts = [];
-    $r = mysqli_query($link, "SELECT sStatus, COUNT(*) c FROM tblrequirement GROUP BY sStatus");
+    $r = mysqli_query($link, "SELECT sStatus, COUNT(*) c FROM tblrequirement WHERE dDeletedAt IS NULL GROUP BY sStatus");
     while ($row = mysqli_fetch_assoc($r)) { $statusCounts[$row['sStatus']] = (int) $row['c']; }
 
     $stats['statusBoard'] = [
-        ['label' => 'Total Vacancy',      'count' => $stats['totalVacancy']],
+        ['label' => 'Total Vacancy',      'count' => $stats['totalVacancies']],
         ['label' => 'Searching',          'count' => $statusCounts['Searching'] ?? 0],
         ['label' => 'Refine Search',      'count' => $statusCounts['Refine Search'] ?? 0],
         ['label' => 'Profiles Sent',      'count' => $statusCounts['Profiles Sent'] ?? 0],
@@ -402,14 +375,14 @@ if ($action === 'dashboardStats') {
     $stats['weeklyStatusBoard'] = ['days' => ['Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], 'dates' => $weekDates, 'rows' => $weeklyRows];
 
     $leadSourceRows = [];
-    $r = mysqli_query($link, "SELECT sSource, COUNT(*) c FROM tblplacement WHERE sSource IS NOT NULL AND sSource <> '' GROUP BY sSource ORDER BY c DESC");
+    $r = mysqli_query($link, "SELECT sSource, COUNT(*) c FROM tblplacement WHERE dDeletedAt IS NULL AND sSource IS NOT NULL AND sSource <> '' GROUP BY sSource ORDER BY c DESC");
     while ($row = mysqli_fetch_assoc($r)) { $leadSourceRows[] = $row; }
     $stats['leadSourceBreakdown'] = $leadSourceRows;
 
     $monthlyByYm = [];
     $r = mysqli_query($link, "SELECT DATE_FORMAT(dJoiningDate, '%Y-%m') ym, COUNT(*) placements, COALESCE(SUM(dRecAmount),0) received
                                FROM tblplacement
-                               WHERE dJoiningDate >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+                               WHERE dDeletedAt IS NULL AND dJoiningDate >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
                                GROUP BY ym ORDER BY ym ASC");
     while ($row = mysqli_fetch_assoc($r)) {
         $monthlyByYm[$row['ym']] = ['ym' => $row['ym'], 'openings' => 0, 'placements' => (int) $row['placements'], 'received' => (float) $row['received']];
@@ -417,7 +390,7 @@ if ($action === 'dashboardStats') {
 
     $r = mysqli_query($link, "SELECT DATE_FORMAT(dOpenDate, '%Y-%m') ym, COALESCE(SUM(iNoOfVacancy),0) openings
                                FROM tblrequirement
-                               WHERE dOpenDate >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+                               WHERE dDeletedAt IS NULL AND dOpenDate >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
                                GROUP BY ym ORDER BY ym ASC");
     while ($row = mysqli_fetch_assoc($r)) {
         if (!isset($monthlyByYm[$row['ym']])) {
@@ -432,6 +405,7 @@ if ($action === 'dashboardStats') {
     $recentReq = [];
     $r = mysqli_query($link, "SELECT r.iReqId, r.sReqNo, r.sPost, r.sStatus, r.dOpenDate, c.sCompanyName
                                FROM tblrequirement r LEFT JOIN tblcompany c ON c.iCompanyId = r.iCompanyId
+                               WHERE r.dDeletedAt IS NULL
                                ORDER BY r.iReqId DESC LIMIT 6");
     while ($row = mysqli_fetch_assoc($r)) { $recentReq[] = $row; }
     $stats['recentRequirements'] = $recentReq;
@@ -439,6 +413,7 @@ if ($action === 'dashboardStats') {
     $recentPlace = [];
     $r = mysqli_query($link, "SELECT p.iPlacementId, p.sCandidateName, p.sPost, p.sJoiningStatus, p.dJoiningDate, c.sCompanyName
                                FROM tblplacement p LEFT JOIN tblcompany c ON c.iCompanyId = p.iCompanyId
+                               WHERE p.dDeletedAt IS NULL
                                ORDER BY p.iPlacementId DESC LIMIT 6");
     while ($row = mysqli_fetch_assoc($r)) { $recentPlace[] = $row; }
     $stats['recentPlacements'] = $recentPlace;
@@ -682,6 +657,21 @@ if ($action === 'fngetlisttrashplacement') {
                                WHERE p.dDeletedAt IS NOT NULL
                                ORDER BY p.dDeletedAt DESC");
     while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
+    sendResponse("success", "ok", $rows);
+}
+
+if ($action === 'fngetlistoutstandinginvoices') {
+    $rows = [];
+    $r = mysqli_query($link, "SELECT p.iPlacementId, p.sInvoiceNo, p.dInvoiceDate, p.sCandidateName, p.dAmount, p.dRecAmount, c.sCompanyName
+                               FROM tblplacement p LEFT JOIN tblcompany c ON c.iCompanyId = p.iCompanyId
+                               WHERE p.dDeletedAt IS NULL AND p.dAmount > p.dRecAmount
+                               ORDER BY (p.dInvoiceDate IS NULL) ASC, p.dInvoiceDate ASC, p.iPlacementId DESC");
+    while ($row = mysqli_fetch_assoc($r)) {
+        $pending = (float) $row['dAmount'] - (float) $row['dRecAmount'];
+        $row['dPendingAmount'] = $pending;
+        $row['sPaymentStatus'] = ((float) $row['dRecAmount'] > 0) ? 'Partially Paid' : 'Unpaid';
+        $rows[] = $row;
+    }
     sendResponse("success", "ok", $rows);
 }
 
@@ -1173,6 +1163,50 @@ if ($action === 'deletepost') {
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
     sendResponse("success", "Post deleted successfully.");
+}
+
+// =====================================================================
+// MASTERS: EDUCATION
+// =====================================================================
+if ($action === 'fngetlisteducation') {
+    $rows = [];
+    $r = mysqli_query($link, "SELECT * FROM tbleducation ORDER BY sEducation ASC");
+    while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
+    sendResponse("success", "ok", $rows);
+}
+if ($action === 'geteducationbyid') {
+    $id = reqInt($inputData, 'id', 0);
+    $stmt = mysqli_prepare($link, "SELECT * FROM tbleducation WHERE iEducationId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    if ($row) sendResponse("success", "ok", $row);
+    sendResponse("error", "Education not found.");
+}
+if ($action === 'addeducation') {
+    $s = reqStr($inputData, 'education');
+    if (!$s) sendResponse("error", "Education name required.");
+    $stmt = mysqli_prepare($link, "INSERT INTO tbleducation (sEducation) VALUES (?)");
+    mysqli_stmt_bind_param($stmt, "s", $s);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Education added successfully.");
+}
+if ($action === 'updateeducation') {
+    $id = reqInt($inputData, 'id', 0);
+    $s = reqStr($inputData, 'education');
+    if (!$id) sendResponse("error", "Invalid education id.");
+    if (!$s) sendResponse("error", "Education name required.");
+    $stmt = mysqli_prepare($link, "UPDATE tbleducation SET sEducation = ? WHERE iEducationId = ?");
+    mysqli_stmt_bind_param($stmt, "si", $s, $id);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Education updated successfully.");
+}
+if ($action === 'deleteeducation') {
+    $id = reqInt($inputData, 'id', 0);
+    $stmt = mysqli_prepare($link, "DELETE FROM tbleducation WHERE iEducationId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Education deleted successfully.");
 }
 
 // =====================================================================

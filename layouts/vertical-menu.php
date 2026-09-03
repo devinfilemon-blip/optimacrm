@@ -17,7 +17,7 @@ function crmActive($scripts) {
 // The Masters submenu links never carry their own active state, so landing on
 // any of them left the whole sidebar showing nothing selected and the submenu
 // collapsed. Compute it once so the parent + submenu both reflect where we are.
-$crmMastersScripts = ['list-status.php', 'list-source.php', 'list-post.php'];
+$crmMastersScripts = ['list-status.php', 'list-source.php', 'list-post.php', 'list-education.php'];
 $crmMastersOpen = crmIsActive($crmMastersScripts);
 ?>
 <header id="page-topbar">
@@ -146,6 +146,7 @@ $crmMastersOpen = crmIsActive($crmMastersScripts);
                         <li><a href="list-status.php" class="<?php echo crmActive('list-status.php'); ?>">Requirement Status</a></li>
                         <li><a href="list-source.php" class="<?php echo crmActive('list-source.php'); ?>">Lead Sources</a></li>
                         <li><a href="list-post.php" class="<?php echo crmActive('list-post.php'); ?>">Post / Designation</a></li>
+                        <li><a href="list-education.php" class="<?php echo crmActive('list-education.php'); ?>">Education</a></li>
                     </ul>
                 </li>
                 <?php endif; ?>

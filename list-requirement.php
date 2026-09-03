@@ -138,6 +138,9 @@ function fngetlistrequirement() {
                     if (params.get('openOnly') === '1') {
                         data = data.filter(function (r) { return ['Closed by Co.', 'Not Joining'].indexOf(r.sStatus) === -1; });
                     }
+                    if (params.get('closedOnly') === '1') {
+                        data = data.filter(function (r) { return ['Closed by Co.', 'Not Joining'].indexOf(r.sStatus) !== -1; });
+                    }
                     var period = params.get('period');
                     if (period) {
                         var range = getPeriodRange(period);
