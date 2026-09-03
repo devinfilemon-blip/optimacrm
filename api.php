@@ -35,6 +35,7 @@ if ($action !== 'loginUser') {
 $currentUserId = $_SESSION['user_id'] ?? 0;
 $currentUserRole = $_SESSION['userRole'] ?? 'Recruiter';
 $isAdmin = ($currentUserRole === 'Admin');
+$isTeamLeader = ($currentUserRole === 'Team Leader');
 
 function reqStr($arr, $key, $default = null) {
     return isset($arr[$key]) && $arr[$key] !== '' ? trim((string) $arr[$key]) : $default;
@@ -634,6 +635,7 @@ if ($action === 'addplacement' || $action === 'updateplacement') {
     $mobile = reqStr($inputData, 'mobile');
     $post = reqStr($inputData, 'post');
     $salary = reqNum($inputData, 'salary', 0);
+    $ctc = reqNum($inputData, 'ctc', 0);
     $joiningDate = reqStr($inputData, 'joiningDate');
     $joiningStatus = reqStr($inputData, 'joiningStatus', 'Pending');
     $workedBy = reqStr($inputData, 'workedBy');
@@ -664,13 +666,13 @@ if ($action === 'addplacement' || $action === 'updateplacement') {
         $selNo = date('y') . date('m') . str_pad($nextId, 3, '0', STR_PAD_LEFT);
 
         $stmt = mysqli_prepare($link, "INSERT INTO tblplacement
-            (sSelectionNo, iReqId, sType, sCandidateName, sMobile, sPost, iCompanyId, dSalary, dJoiningDate, sJoiningStatus,
+            (sSelectionNo, iReqId, sType, sCandidateName, sMobile, sPost, iCompanyId, dSalary, dCtc, dJoiningDate, sJoiningStatus,
              sWorkedBy, sSource, sRemark, dInvoiceDate, sInvoiceNo, dCharges, dCgst, dSgst, dTotalGst, dAmount, dRecAmount,
              dPaymentRecDate, sPaymentMode, dTds, dIpcInvDate, sIpcInvNo, dIpcInvAmt, dPaymentDate, sPaymentDetails, sRef1, sRef2, iCreatedBy)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
         bindDynamic($stmt, [
             ['s', $selNo], ['i', $reqId], ['s', $type], ['s', $candidateName], ['s', $mobile], ['s', $post],
-            ['i', $companyId], ['d', $salary], ['s', $joiningDate], ['s', $joiningStatus],
+            ['i', $companyId], ['d', $salary], ['d', $ctc], ['s', $joiningDate], ['s', $joiningStatus],
             ['s', $workedBy], ['s', $source], ['s', $remark], ['s', $invoiceDate], ['s', $invoiceNo],
             ['d', $charges], ['d', $cgst], ['d', $sgst], ['d', $totalGst], ['d', $amount], ['d', $recAmount],
             ['s', $paymentRecDate], ['s', $paymentMode], ['d', $tds], ['s', $ipcInvDate], ['s', $ipcInvNo],
@@ -683,13 +685,13 @@ if ($action === 'addplacement' || $action === 'updateplacement') {
         $id = reqInt($inputData, 'id', 0);
         if (!$id) sendResponse("error", "Invalid placement id.");
         $stmt = mysqli_prepare($link, "UPDATE tblplacement SET
-            iReqId=?, sType=?, sCandidateName=?, sMobile=?, sPost=?, iCompanyId=?, dSalary=?, dJoiningDate=?, sJoiningStatus=?,
+            iReqId=?, sType=?, sCandidateName=?, sMobile=?, sPost=?, iCompanyId=?, dSalary=?, dCtc=?, dJoiningDate=?, sJoiningStatus=?,
             sWorkedBy=?, sSource=?, sRemark=?, dInvoiceDate=?, sInvoiceNo=?, dCharges=?, dCgst=?, dSgst=?, dTotalGst=?, dAmount=?, dRecAmount=?,
             dPaymentRecDate=?, sPaymentMode=?, dTds=?, dIpcInvDate=?, sIpcInvNo=?, dIpcInvAmt=?, dPaymentDate=?, sPaymentDetails=?, sRef1=?, sRef2=?
             WHERE iPlacementId=?");
         bindDynamic($stmt, [
             ['i', $reqId], ['s', $type], ['s', $candidateName], ['s', $mobile], ['s', $post], ['i', $companyId],
-            ['d', $salary], ['s', $joiningDate], ['s', $joiningStatus],
+            ['d', $salary], ['d', $ctc], ['s', $joiningDate], ['s', $joiningStatus],
             ['s', $workedBy], ['s', $source], ['s', $remark], ['s', $invoiceDate], ['s', $invoiceNo],
             ['d', $charges], ['d', $cgst], ['d', $sgst], ['d', $totalGst], ['d', $amount], ['d', $recAmount],
             ['s', $paymentRecDate], ['s', $paymentMode], ['d', $tds], ['s', $ipcInvDate], ['s', $ipcInvNo],
@@ -777,37 +779,70 @@ if ($action === 'deleteplacement') {
 }
 
 // =====================================================================
-// USERS (Admin only for write actions)
+// USERS — Admin manages everyone; a Team Leader may add/manage only the
+// Recruiters that report to them (iManagerId = their own user id).
 // =====================================================================
 if ($action === 'fngetlistuser') {
+    if (!$isAdmin && !$isTeamLeader) sendResponse("error", "Not authorized.");
     $rows = [];
-    $r = mysqli_query($link, "SELECT iUserid, sName, sEmail, sPhone, sRole, sIs_active, sCreatedTimeStamp FROM tbluser ORDER BY iUserid DESC");
+    if ($isAdmin) {
+        $r = mysqli_query($link, "SELECT u.iUserid, u.sName, u.sEmail, u.sPhone, u.sRole, u.iManagerId, u.sIs_active, u.sCreatedTimeStamp,
+                                          m.sName AS sManagerName
+                                   FROM tbluser u LEFT JOIN tbluser m ON m.iUserid = u.iManagerId
+                                   ORDER BY u.iUserid DESC");
+        while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
+    } else {
+        $stmt = mysqli_prepare($link, "SELECT iUserid, sName, sEmail, sPhone, sRole, iManagerId, sIs_active, sCreatedTimeStamp
+                                        FROM tbluser WHERE iManagerId = ? ORDER BY iUserid DESC");
+        mysqli_stmt_bind_param($stmt, "i", $currentUserId);
+        mysqli_stmt_execute($stmt);
+        $r = mysqli_stmt_get_result($stmt);
+        while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
+    }
+    sendResponse("success", "ok", $rows);
+}
+
+if ($action === 'fngetteamleaderdropdown') {
+    $rows = [];
+    $r = mysqli_query($link, "SELECT iUserid, sName FROM tbluser WHERE sRole = 'Team Leader' AND sIs_active = 1 ORDER BY sName ASC");
     while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
     sendResponse("success", "ok", $rows);
 }
 
 if ($action === 'getuserbyid') {
+    if (!$isAdmin && !$isTeamLeader) sendResponse("error", "Not authorized.");
     $id = reqInt($inputData, 'id', 0);
-    $stmt = mysqli_prepare($link, "SELECT iUserid, sName, sEmail, sPhone, sRole, sIs_active FROM tbluser WHERE iUserid = ?");
+    $stmt = mysqli_prepare($link, "SELECT iUserid, sName, sEmail, sPhone, sRole, iManagerId, sIs_active FROM tbluser WHERE iUserid = ?");
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
     $res = mysqli_stmt_get_result($stmt);
     $row = mysqli_fetch_assoc($res);
-    if ($row) sendResponse("success", "ok", $row);
-    sendResponse("error", "User not found.");
+    if (!$row) sendResponse("error", "User not found.");
+    if (!$isAdmin && (int) $row['iManagerId'] !== $currentUserId) sendResponse("error", "Not authorized.");
+    sendResponse("success", "ok", $row);
 }
 
 if ($action === 'adduser' || $action === 'updateuser') {
-    if (!$isAdmin) sendResponse("error", "Only Admin can manage users.");
+    if (!$isAdmin && !$isTeamLeader) sendResponse("error", "Not authorized.");
 
     $name = reqStr($inputData, 'name');
     $phone = reqStr($inputData, 'phone');
     if (!$name || !$phone) sendResponse("error", "Name and phone are required.");
 
     $email = reqStr($inputData, 'email');
-    $role = reqStr($inputData, 'role', 'Recruiter');
-    $role = in_array($role, ['Admin', 'Recruiter'], true) ? $role : 'Recruiter';
     $isActive = reqInt($inputData, 'isActive', 1);
+
+    if ($isAdmin) {
+        $role = reqStr($inputData, 'role', 'Recruiter');
+        $role = in_array($role, ['Admin', 'Team Leader', 'Recruiter'], true) ? $role : 'Recruiter';
+        $managerId = $role === 'Recruiter' ? reqInt($inputData, 'managerId', null) : null;
+    } else {
+        // A Team Leader can only ever create/edit their own Recruiters —
+        // role and manager are forced server-side regardless of what's posted,
+        // so a Team Leader can't grant themselves or anyone else a higher role.
+        $role = 'Recruiter';
+        $managerId = $currentUserId;
+    }
 
     if ($action === 'adduser') {
         $password = $inputData['password'] ?? '';
@@ -821,15 +856,24 @@ if ($action === 'adduser' || $action === 'updateuser') {
             sendResponse("error", "Phone number already registered.");
         }
 
-        $stmt = mysqli_prepare($link, "INSERT INTO tbluser (sName, sEmail, sPhone, sRole, sPassword_hash, sIs_active) VALUES (?,?,?,?,?,?)");
-        mysqli_stmt_bind_param($stmt, "sssssi", $name, $email, $phone, $role, $hash, $isActive);
+        $stmt = mysqli_prepare($link, "INSERT INTO tbluser (sName, sEmail, sPhone, sRole, iManagerId, sPassword_hash, sIs_active) VALUES (?,?,?,?,?,?,?)");
+        bindDynamic($stmt, [['s', $name], ['s', $email], ['s', $phone], ['s', $role], ['i', $managerId], ['s', $hash], ['i', $isActive]]);
         mysqli_stmt_execute($stmt);
         sendResponse("success", "User added successfully.");
     } else {
         $id = reqInt($inputData, 'id', 0);
         if (!$id) sendResponse("error", "Invalid user id.");
-        $stmt = mysqli_prepare($link, "UPDATE tbluser SET sName=?, sEmail=?, sPhone=?, sRole=?, sIs_active=? WHERE iUserid=?");
-        mysqli_stmt_bind_param($stmt, "ssssii", $name, $email, $phone, $role, $isActive, $id);
+
+        if (!$isAdmin) {
+            $chk = mysqli_prepare($link, "SELECT iManagerId FROM tbluser WHERE iUserid = ?");
+            mysqli_stmt_bind_param($chk, "i", $id);
+            mysqli_stmt_execute($chk);
+            $chkRow = mysqli_fetch_assoc(mysqli_stmt_get_result($chk));
+            if (!$chkRow || (int) $chkRow['iManagerId'] !== $currentUserId) sendResponse("error", "Not authorized.");
+        }
+
+        $stmt = mysqli_prepare($link, "UPDATE tbluser SET sName=?, sEmail=?, sPhone=?, sRole=?, iManagerId=?, sIs_active=? WHERE iUserid=?");
+        bindDynamic($stmt, [['s', $name], ['s', $email], ['s', $phone], ['s', $role], ['i', $managerId], ['i', $isActive], ['i', $id]]);
         mysqli_stmt_execute($stmt);
 
         if (!empty($inputData['password'])) {
@@ -844,10 +888,17 @@ if ($action === 'adduser' || $action === 'updateuser') {
 }
 
 if ($action === 'deleteuser') {
-    if (!$isAdmin) sendResponse("error", "Only Admin can manage users.");
+    if (!$isAdmin && !$isTeamLeader) sendResponse("error", "Not authorized.");
     $id = reqInt($inputData, 'id', 0);
     if (!$id) sendResponse("error", "Invalid user id.");
     if ($id === $currentUserId) sendResponse("error", "You cannot delete your own account.");
+    if (!$isAdmin) {
+        $chk = mysqli_prepare($link, "SELECT iManagerId FROM tbluser WHERE iUserid = ?");
+        mysqli_stmt_bind_param($chk, "i", $id);
+        mysqli_stmt_execute($chk);
+        $chkRow = mysqli_fetch_assoc(mysqli_stmt_get_result($chk));
+        if (!$chkRow || (int) $chkRow['iManagerId'] !== $currentUserId) sendResponse("error", "Not authorized.");
+    }
     $stmt = mysqli_prepare($link, "DELETE FROM tbluser WHERE iUserid = ?");
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);

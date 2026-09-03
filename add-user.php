@@ -1,5 +1,8 @@
 <?php include 'layouts/session.php';
-if (($_SESSION['userRole'] ?? '') !== 'Admin') { header('Location: index.php'); exit; }
+$crmUserRole = $_SESSION['userRole'] ?? '';
+$crmIsAdminPage = $crmUserRole === 'Admin';
+$crmIsTeamLeaderPage = $crmUserRole === 'Team Leader';
+if (!$crmIsAdminPage && !$crmIsTeamLeaderPage) { header('Location: index.php'); exit; }
 ?>
 <?php include 'layouts/head-main.php'; ?>
 <?php include 'layouts/config.php';
@@ -19,10 +22,10 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                 <div class="row">
                     <div class="col-12">
                         <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                            <h4 class="mb-sm-0 font-size-18"><?php echo $id ? 'Edit' : 'Add'; ?> User</h4>
+                            <h4 class="mb-sm-0 font-size-18"><?php echo $id ? 'Edit' : 'Add'; ?> <?php echo $crmIsAdminPage ? 'User' : 'Recruiter'; ?></h4>
                             <div class="page-title-right">
                                 <ol class="breadcrumb m-0">
-                                    <li class="breadcrumb-item"><a href="list-user.php">Users</a></li>
+                                    <li class="breadcrumb-item"><a href="list-user.php"><?php echo $crmIsAdminPage ? 'Users' : 'My Recruiters'; ?></a></li>
                                     <li class="breadcrumb-item active"><?php echo $id ? 'Edit' : 'Add'; ?></li>
                                 </ol>
                             </div>
@@ -55,15 +58,24 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                                             <input type="email" class="form-control" id="email">
                                         </div>
                                     </div>
+                                    <?php if ($crmIsAdminPage) : ?>
                                     <div class="col-md-6">
                                         <div class="mb-3">
                                             <label class="form-label">Role</label>
                                             <select class="form-control" id="role">
                                                 <option value="Recruiter">Recruiter</option>
+                                                <option value="Team Leader">Team Leader</option>
                                                 <option value="Admin">Admin</option>
                                             </select>
                                         </div>
                                     </div>
+                                    <div class="col-md-6" id="managerField">
+                                        <div class="mb-3">
+                                            <label class="form-label">Reports To (Team Leader)</label>
+                                            <select class="form-control" id="managerId"><option value="">-- None --</option></select>
+                                        </div>
+                                    </div>
+                                    <?php endif; ?>
                                     <div class="col-md-6">
                                         <div class="mb-3">
                                             <label class="form-label"><?php echo $id ? 'New Password (leave blank to keep unchanged)' : 'Password *'; ?></label>
@@ -96,6 +108,7 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 <?php include 'layouts/vendor-scripts.php'; ?>
 <script>
 var editId = parseInt(document.getElementById('id').value) || 0;
+var CRM_IS_ADMIN_PAGE = <?php echo $crmIsAdminPage ? 'true' : 'false'; ?>;
 
 function showMessage(msg, ok) {
     var el = document.getElementById('message');
@@ -103,7 +116,40 @@ function showMessage(msg, ok) {
     el.className = ok ? 'add-message' : 'error-message';
 }
 
+function toggleManagerField() {
+    var roleEl = document.getElementById('role');
+    var managerField = document.getElementById('managerField');
+    if (!roleEl || !managerField) return;
+    managerField.style.display = roleEl.value === 'Recruiter' ? '' : 'none';
+}
+
+function loadTeamLeaderDropdown(selected) {
+    if (!CRM_IS_ADMIN_PAGE) return;
+    fetch('api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'fngetteamleaderdropdown' })
+    })
+    .then(r => r.json())
+    .then(res => {
+        var sel = document.getElementById('managerId');
+        sel.innerHTML = '<option value="">-- None --</option>';
+        (res.data || []).forEach(function (tl) {
+            var opt = document.createElement('option');
+            opt.value = tl.iUserid;
+            opt.textContent = tl.sName;
+            if (selected && parseInt(selected) === parseInt(tl.iUserid)) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    });
+}
+
 function loadUser() {
+    if (CRM_IS_ADMIN_PAGE) {
+        loadTeamLeaderDropdown(null);
+        document.getElementById('role').addEventListener('change', toggleManagerField);
+        toggleManagerField();
+    }
     if (!editId) return;
     fetch('api.php', {
         method: 'POST',
@@ -117,8 +163,12 @@ function loadUser() {
         document.getElementById('name').value = d.sName || '';
         document.getElementById('phone').value = d.sPhone || '';
         document.getElementById('email').value = d.sEmail || '';
-        document.getElementById('role').value = d.sRole || 'Recruiter';
         document.getElementById('isActive').value = String(d.sIs_active);
+        if (CRM_IS_ADMIN_PAGE) {
+            document.getElementById('role').value = d.sRole || 'Recruiter';
+            loadTeamLeaderDropdown(d.iManagerId);
+            toggleManagerField();
+        }
     });
 }
 
@@ -135,10 +185,13 @@ function saveUser() {
         name: name,
         phone: phone,
         email: document.getElementById('email').value,
-        role: document.getElementById('role').value,
         isActive: document.getElementById('isActive').value,
         password: password
     };
+    if (CRM_IS_ADMIN_PAGE) {
+        data.role = document.getElementById('role').value;
+        data.managerId = document.getElementById('managerId').value;
+    }
 
     fetch('api.php', {
         method: 'POST',

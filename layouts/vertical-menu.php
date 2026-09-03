@@ -1,5 +1,6 @@
 <?php
 $crmIsAdmin = isset($_SESSION['userRole']) && $_SESSION['userRole'] === 'Admin';
+$crmIsTeamLeader = isset($_SESSION['userRole']) && $_SESSION['userRole'] === 'Team Leader';
 $crmCurrentScript = basename($_SERVER['SCRIPT_NAME']);
 function crmIsActive($scripts) {
     global $crmCurrentScript;
@@ -126,14 +127,16 @@ $crmMastersOpen = crmIsActive($crmMastersScripts);
                     </a>
                 </li>
 
-                <?php if ($crmIsAdmin) : ?>
+                <?php if ($crmIsAdmin || $crmIsTeamLeader) : ?>
                 <li class="menu-title">Admin</li>
                 <li>
                     <a href="list-user.php" class="waves-effect <?php echo crmActive(['list-user.php', 'add-user.php']); ?>">
                         <i class="bx bx-group"></i>
-                        <span>Recruiters &amp; Users</span>
+                        <span><?php echo $crmIsAdmin ? 'Recruiters &amp; Users' : 'My Recruiters'; ?></span>
                     </a>
                 </li>
+                <?php endif; ?>
+                <?php if ($crmIsAdmin) : ?>
                 <li class="<?php echo $crmMastersOpen ? 'mm-active' : ''; ?>">
                     <a href="javascript: void(0);" class="has-arrow waves-effect<?php echo $crmMastersOpen ? ' mm-active' : ''; ?>">
                         <i class="bx bx-cog"></i>

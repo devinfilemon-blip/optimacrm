@@ -1,5 +1,8 @@
 <?php include 'layouts/session.php';
-if (($_SESSION['userRole'] ?? '') !== 'Admin') { header('Location: index.php'); exit; }
+$crmUserRole = $_SESSION['userRole'] ?? '';
+$crmIsAdminPage = $crmUserRole === 'Admin';
+$crmIsTeamLeaderPage = $crmUserRole === 'Team Leader';
+if (!$crmIsAdminPage && !$crmIsTeamLeaderPage) { header('Location: index.php'); exit; }
 ?>
 <?php include 'layouts/head-main.php'; ?>
 <?php include 'layouts/config.php'; ?>
@@ -17,9 +20,9 @@ if (($_SESSION['userRole'] ?? '') !== 'Admin') { header('Location: index.php'); 
                 <div class="row">
                     <div class="col-12">
                         <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                            <h4 class="mb-sm-0 font-size-18">Recruiters &amp; Users</h4>
+                            <h4 class="mb-sm-0 font-size-18"><?php echo $crmIsAdminPage ? 'Recruiters &amp; Users' : 'My Recruiters'; ?></h4>
                             <div class="page-title-right">
-                                <a href="add-user.php" class="btn btn-primary btn-sm"><i class="bx bx-plus"></i> Add User</a>
+                                <a href="add-user.php" class="btn btn-primary btn-sm"><i class="bx bx-plus"></i> <?php echo $crmIsAdminPage ? 'Add User' : 'Add Recruiter'; ?></a>
                             </div>
                         </div>
                     </div>
@@ -35,6 +38,7 @@ if (($_SESSION['userRole'] ?? '') !== 'Admin') { header('Location: index.php'); 
                                 <th>Phone</th>
                                 <th>Email</th>
                                 <th>Role</th>
+                                <?php if ($crmIsAdminPage) : ?><th>Reports To</th><?php endif; ?>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
@@ -52,6 +56,7 @@ if (($_SESSION['userRole'] ?? '') !== 'Admin') { header('Location: index.php'); 
 
 <?php include 'layouts/vendor-scripts.php'; ?>
 <script>
+var CRM_IS_ADMIN_PAGE = <?php echo $crmIsAdminPage ? 'true' : 'false'; ?>;
 var userRowsById = {};
 function fngetlistuser() {
     $.ajax({
@@ -74,6 +79,7 @@ function fngetlistuser() {
                         '<td>' + $('<div>').text(u.sPhone).html() + '</td>' +
                         '<td>' + $('<div>').text(u.sEmail || '-').html() + '</td>' +
                         '<td>' + $('<div>').text(u.sRole).html() + '</td>' +
+                        (CRM_IS_ADMIN_PAGE ? '<td>' + $('<div>').text(u.sManagerName || '-').html() + '</td>' : '') +
                         '<td>' + statusBadge + '</td>' +
                         crmActionMenu([
                             { label: 'Edit', icon: 'bx-edit-alt', href: 'add-user.php?id=' + u.iUserid },
@@ -85,11 +91,18 @@ function fngetlistuser() {
                 $('#datatable tbody').html(rows);
                 $('#datatable').DataTable();
             } else {
-                $('#datatable tbody').html('<tr><td colspan="7">No users found</td></tr>');
+                $('#datatable tbody').html('<tr><td colspan="8">No users found</td></tr>');
             }
         }
     });
 }
+
+// The "Reports To" column only exists in the Admin view, so every cellIndex
+// after Role shifts by one depending on who's looking at the page.
+var crmUserColOffset = CRM_IS_ADMIN_PAGE ? 1 : 0;
+var crmRoleField = CRM_IS_ADMIN_PAGE
+    ? { cellIndex: 4, key: 'sRole', type: 'select', options: [{ value: 'Admin', label: 'Admin' }, { value: 'Team Leader', label: 'Team Leader' }, { value: 'Recruiter', label: 'Recruiter' }] }
+    : null;
 
 window.crmInlineEdit = {
     getRowId: function ($row) { return parseInt($row.data('id'), 10); },
@@ -97,12 +110,12 @@ window.crmInlineEdit = {
     fields: [
         { cellIndex: 1, key: 'sName', type: 'text' },
         { cellIndex: 2, key: 'sPhone', type: 'text' },
-        { cellIndex: 3, key: 'sEmail', type: 'text' },
-        { cellIndex: 4, key: 'sRole', type: 'select', options: [{ value: 'Admin', label: 'Admin' }, { value: 'Recruiter', label: 'Recruiter' }] },
-        { cellIndex: 5, key: 'sIs_active', type: 'select', options: [{ value: 1, label: 'Active' }, { value: 0, label: 'Inactive' }] }
-    ],
+        { cellIndex: 3, key: 'sEmail', type: 'text' }
+    ].concat(crmRoleField ? [crmRoleField] : []).concat([
+        { cellIndex: 5 + crmUserColOffset, key: 'sIs_active', type: 'select', options: [{ value: 1, label: 'Active' }, { value: 0, label: 'Inactive' }] }
+    ]),
     toPayload: function (merged, id) {
-        return { id: id, name: merged.sName, phone: merged.sPhone, email: merged.sEmail, role: merged.sRole, isActive: merged.sIs_active };
+        return { id: id, name: merged.sName, phone: merged.sPhone, email: merged.sEmail, role: merged.sRole, managerId: merged.iManagerId, isActive: merged.sIs_active };
     },
     saveAction: 'updateuser',
     onSaved: function () { fngetlistuser(); }

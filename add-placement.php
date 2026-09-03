@@ -88,8 +88,8 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                                     </div>
                                     <div class="col-md-3">
                                         <div class="mb-3">
-                                            <label class="form-label">Salary</label>
-                                            <input type="number" step="0.01" class="form-control" id="salary">
+                                            <label class="form-label">Annual CTC (₹)</label>
+                                            <input type="number" step="0.01" class="form-control" id="ctc" placeholder="e.g. 216000">
                                         </div>
                                     </div>
                                     <div class="col-md-3">
@@ -375,7 +375,7 @@ function loadPlacement() {
         document.getElementById('mobile').value = d.sMobile || '';
         document.getElementById('type').value = d.sType || 'NT';
         document.getElementById('post').value = d.sPost || '';
-        document.getElementById('salary').value = d.dSalary || '';
+        document.getElementById('ctc').value = d.dCtc || '';
         document.getElementById('joiningDate').value = d.dJoiningDate || '';
         document.getElementById('joiningStatus').value = d.sJoiningStatus || 'Pending';
         document.getElementById('workedBy').value = d.sWorkedBy || '';
@@ -417,7 +417,7 @@ function savePlacement() {
         companyId: document.getElementById('companyId').value,
         reqId: document.getElementById('reqId').value,
         post: document.getElementById('post').value,
-        salary: document.getElementById('salary').value,
+        ctc: document.getElementById('ctc').value,
         joiningDate: document.getElementById('joiningDate').value,
         joiningStatus: document.getElementById('joiningStatus').value,
         source: document.getElementById('source').value,

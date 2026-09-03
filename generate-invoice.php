@@ -20,7 +20,6 @@ if (!$placement) { die('Placement not found.'); }
 
 if (!$placement['sInvoiceNo'] || !$placement['dInvoiceDate'] || (float) $placement['dCharges'] <= 0) {
     include 'layouts/head-main.php';
-    include 'layouts/config.php';
     ?>
     <head><title>Invoice not ready | <?php echo APP_NAME; ?></title><?php include 'layouts/head.php'; ?></head>
     <?php include 'layouts/body.php'; ?>
@@ -80,13 +79,19 @@ function numWordsIndian($num) {
 /* ---- derived invoice content ---- */
 $candidateName = $placement['sCandidateName'];
 $charges = (float) $placement['dCharges'];
-$salary = (float) $placement['dSalary'];
-$annualCtc = $salary * 12;
+// Annual CTC is entered directly (an offer letter's real CTC rarely equals
+// monthly salary x 12 once PF, gratuity, bonuses etc. are counted). Older
+// placements saved before this field existed only have a monthly dSalary —
+// fall back to that x 12 for them so their invoices don't go blank.
+$annualCtc = (float) $placement['dCtc'];
+if ($annualCtc <= 0) {
+    $annualCtc = (float) $placement['dSalary'] * 12;
+}
 $pct = $annualCtc > 0 ? round(($charges / $annualCtc) * 100, 2) : 0;
 
 $descLines = ['Recruitment consulting charges for ' . $candidateName];
 if ($annualCtc > 0) {
-    $descLines[] = $pct . '% of Annual CTC (' . money($salary) . ' X 12 = ' . money($annualCtc) . '/-)';
+    $descLines[] = $pct . '% of Annual CTC (' . money($annualCtc) . '/-)';
 }
 $vacancyRef = $placement['sReqNo'] ?: $placement['sExternalReqNo'];
 if ($vacancyRef) { $descLines[] = 'Vacancy No- ' . $vacancyRef; }
@@ -98,52 +103,96 @@ class InvoicePdf extends FPDF {
     function Footer() {}
 }
 
+// FPDF's own MultiCell wraps by word width, not by counting "\n"s — a block
+// with only two explicit line breaks can still render as three or four lines
+// once a long line wraps, and the fixed box drawn around it was overflowing
+// as a result. This mirrors FPDF's wrapping so a box can be sized to fit.
+function pdfWrapLineCount($pdf, $w, $text) {
+    $lines = 0;
+    foreach (explode("\n", $text) as $para) {
+        if ($para === '') { $lines++; continue; }
+        $words = explode(' ', $para);
+        $line = '';
+        foreach ($words as $word) {
+            $test = $line === '' ? $word : $line . ' ' . $word;
+            if ($pdf->GetStringWidth($test) > $w && $line !== '') {
+                $lines++;
+                $line = $word;
+            } else {
+                $line = $test;
+            }
+        }
+        $lines++;
+    }
+    return max(1, $lines);
+}
+
 $pdf = new InvoicePdf('P', 'mm', 'A4');
 $pdf->SetMargins(10, 10, 10);
 $pdf->SetAutoPageBreak(true, 15);
 $pdf->AddPage();
 $pageW = 190;
 
-/* Title bar */
+/* Header — two rows, matching the original template: a full-width navy
+   "TAX INVOICE" bar, then a plain row underneath with the company logo. */
 $pdf->SetFillColor($navy[0], $navy[1], $navy[2]);
 $pdf->SetTextColor(255, 255, 255);
-$pdf->SetFont('Helvetica', 'B', 16);
+$pdf->SetFont('Helvetica', 'B', 18);
+$pdf->Rect(10, 10, $pageW, 10, 'DF');
 $pdf->SetXY(10, 10);
-$pdf->Cell($pageW, 12, px('TAX INVOICE'), 0, 1, 'C', true);
+$pdf->Cell($pageW, 10, px('TAX INVOICE'), 0, 0, 'C');
 $pdf->SetTextColor(0, 0, 0);
-$pdf->Ln(3);
 
-/* Biller (left) / Invoice meta (right) */
+$logoRowH = 12;
+$pdf->Rect(10, 20, $pageW, $logoRowH);
+$logoPath = __DIR__ . '/' . APP_LOGO;
+if (is_file($logoPath)) {
+    $logoH = 8.5;
+    $logoW = $logoH * (1241 / 502); // source image's native aspect ratio
+    $pdf->Image($logoPath, 10 + $pageW - $logoW - 3, 20 + ($logoRowH - $logoH) / 2, $logoW, $logoH);
+}
+$pdf->SetY(32);
+
+/* Biller (left) / Invoice meta (right) — drawn to a shared height so neither
+   box's border falls short of the other's. */
 $leftW = 110; $rightW = 80;
 $topY = $pdf->GetY();
+$pad = 2;
 
-$pdf->SetXY(10, $topY);
 $pdf->SetFont('Helvetica', 'B', 11);
-$pdf->MultiCell($leftW, 5.5, px(BILLER_NAME), 1, 'L');
+$titleLines = pdfWrapLineCount($pdf, $leftW - 2 * $pad, px(BILLER_NAME));
+$addressText = px(BILLER_ADDRESS_LINE1 . "\n" . BILLER_ADDRESS_LINE2 . "\nContact: " . BILLER_CONTACT . "\n" . BILLER_EMAIL);
 $pdf->SetFont('Helvetica', '', 9);
-$pdf->SetX(10);
-$pdf->MultiCell($leftW, 4.5, px(BILLER_ADDRESS_LINE1 . "\n" . BILLER_ADDRESS_LINE2 . "\nContact: " . BILLER_CONTACT . "\n" . BILLER_EMAIL . "\nGSTIN: " . BILLER_GSTIN), 1, 'L');
-$leftBottomY = $pdf->GetY();
+$addressLines = pdfWrapLineCount($pdf, $leftW - 2 * $pad, $addressText);
+$leftH = $pad + $titleLines * 5.5 + $addressLines * 4.5 + $pad;
 
-$pdf->SetXY(10 + $leftW, $topY);
-$pdf->SetFont('Helvetica', 'B', 9);
-$pdf->Cell(35, 7, px('Invoice No'), 1);
-$pdf->SetFont('Helvetica', '', 9);
-$pdf->Cell($rightW - 35, 7, px($placement['sInvoiceNo']), 1, 1);
-$pdf->SetX(10 + $leftW);
-$pdf->SetFont('Helvetica', 'B', 9);
-$pdf->Cell(35, 7, px('Invoice Date'), 1);
-$pdf->SetFont('Helvetica', '', 9);
-$pdf->Cell($rightW - 35, 7, px(date('d/m/Y', strtotime($placement['dInvoiceDate']))), 1, 1);
-$pdf->SetX(10 + $leftW);
-$pdf->SetFont('Helvetica', 'B', 9);
-$pdf->Cell(35, 7, px('Buyer Ref'), 1);
-$pdf->SetFont('Helvetica', '', 9);
-$pdf->Cell($rightW - 35, 7, px($placement['sRef1']), 1, 1);
-$rightBottomY = $pdf->GetY();
+$rightRowH = max(7, ($leftH) / 3);
+$boxH = max($leftH, $rightRowH * 3);
 
-$pdf->SetY(max($leftBottomY, $rightBottomY));
-$pdf->Ln(2);
+$pdf->Rect(10, $topY, $leftW, $boxH);
+$pdf->SetXY(10 + $pad, $topY + $pad);
+$pdf->SetFont('Helvetica', 'B', 11);
+$pdf->MultiCell($leftW - 2 * $pad, 5.5, px(BILLER_NAME), 0, 'L');
+$pdf->SetFont('Helvetica', '', 9);
+$pdf->SetX(10 + $pad);
+$pdf->MultiCell($leftW - 2 * $pad, 4.5, $addressText, 0, 'L');
+
+$metaRowH = $boxH / 3;
+$metaRows = [
+    ['Invoice No', px($placement['sInvoiceNo'])],
+    ['Invoice Date', px(date('d/m/Y', strtotime($placement['dInvoiceDate'])))],
+    ['Buyer Ref', px($placement['sRef1'] ?: '-')],
+];
+foreach ($metaRows as $i => $mr) {
+    $pdf->SetXY(10 + $leftW, $topY + $i * $metaRowH);
+    $pdf->SetFont('Helvetica', 'B', 9);
+    $pdf->Cell(32, $metaRowH, px($mr[0]), 1, 0, 'L');
+    $pdf->SetFont('Helvetica', '', 9);
+    $pdf->Cell($rightW - 32, $metaRowH, $mr[1], 1, 0, 'L');
+}
+
+$pdf->SetY($topY + $boxH);
+$pdf->Ln(4);
 
 /* Customer */
 $pdf->SetFont('Helvetica', '', 9);
@@ -158,38 +207,43 @@ $custStartY = $pdf->GetY();
 $pdf->MultiCell($pageW, 5, $custLines, 1, 'L');
 $pdf->Ln(2);
 
-/* Item table */
+/* Item table — plain bordered header (no fill), matching the original. */
 $colSr = 15; $colDesc = 110; $colSac = 30; $colAmt = 35;
-$pdf->SetFillColor($navy[0], $navy[1], $navy[2]);
-$pdf->SetTextColor(255, 255, 255);
 $pdf->SetFont('Helvetica', 'B', 9);
 $pdf->SetX(10);
-$pdf->Cell($colSr, 7, px('SR NO'), 1, 0, 'C', true);
-$pdf->Cell($colDesc, 7, px('DESCRIPTION'), 1, 0, 'C', true);
-$pdf->Cell($colSac, 7, px('SAC Code'), 1, 0, 'C', true);
-$pdf->Cell($colAmt, 7, px('AMOUNT'), 1, 1, 'C', true);
-$pdf->SetTextColor(0, 0, 0);
+$pdf->Cell($colSr, 7, px('SR NO'), 1, 0, 'C');
+$pdf->Cell($colDesc, 7, px('DESCRIPTION'), 1, 0, 'C');
+$pdf->Cell($colSac, 7, px('SAC Code'), 1, 0, 'C');
+$pdf->Cell($colAmt, 7, px('AMOUNT'), 1, 1, 'C');
 
-$descText = px(implode("\n", $descLines));
+// Each description line is its own bordered row (as in the original), with
+// the SR NO / SAC Code / AMOUNT columns merged down the side across all of
+// them — FPDF has no real cell merge, so that merge is one tall Rect drawn
+// after the fact, sized to whatever total height the description rows end up needing.
 $pdf->SetFont('Helvetica', '', 9);
-$lineCount = substr_count($descText, "\n") + 1;
-$rowH = max(7, $lineCount * 5);
-$rowY = $pdf->GetY();
+$descPad = 1.5;
+$startY = $pdf->GetY();
+$curY = $startY;
+foreach ($descLines as $line) {
+    $subLines = pdfWrapLineCount($pdf, $colDesc - 2 * $descPad, px($line));
+    $lineH = max(6, $subLines * 4.5 + 2 * $descPad);
+    $pdf->Rect(10 + $colSr, $curY, $colDesc, $lineH);
+    $pdf->SetXY(10 + $colSr + $descPad, $curY + $descPad);
+    $pdf->MultiCell($colDesc - 2 * $descPad, 4.5, px($line), 0, 'L');
+    $curY += $lineH;
+}
+$rowH = $curY - $startY;
 
-$pdf->Rect(10, $rowY, $colSr, $rowH);
-$pdf->Rect(10 + $colSr, $rowY, $colDesc, $rowH);
-$pdf->Rect(10 + $colSr + $colDesc, $rowY, $colSac, $rowH);
-$pdf->Rect(10 + $colSr + $colDesc + $colSac, $rowY, $colAmt, $rowH);
-
-$pdf->SetXY(10, $rowY + ($rowH - 5) / 2);
+$pdf->Rect(10, $startY, $colSr, $rowH);
+$pdf->SetXY(10, $startY + ($rowH - 5) / 2);
 $pdf->Cell($colSr, 5, '1', 0, 0, 'C');
-$pdf->SetXY(10 + $colSr + 2, $rowY + 1.5);
-$pdf->MultiCell($colDesc - 4, 5, $descText, 0, 'L');
-$pdf->SetXY(10 + $colSr + $colDesc, $rowY + ($rowH - 5) / 2);
+$pdf->Rect(10 + $colSr + $colDesc, $startY, $colSac, $rowH);
+$pdf->SetXY(10 + $colSr + $colDesc, $startY + ($rowH - 5) / 2);
 $pdf->Cell($colSac, 5, px(BILLER_SAC_CODE), 0, 0, 'C');
-$pdf->SetXY(10 + $colSr + $colDesc + $colSac, $rowY + ($rowH - 5) / 2);
+$pdf->Rect(10 + $colSr + $colDesc + $colSac, $startY, $colAmt, $rowH);
+$pdf->SetXY(10 + $colSr + $colDesc + $colSac, $startY + ($rowH - 5) / 2);
 $pdf->Cell($colAmt, 5, money($charges), 0, 0, 'R');
-$pdf->SetXY(10, $rowY + $rowH);
+$pdf->SetXY(10, $startY + $rowH);
 
 /* Totals */
 $sgst = (float) $placement['dSgst'];
