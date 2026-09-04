@@ -7,10 +7,11 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 if (!$id) { die('Invalid placement id.'); }
 
 $stmt = mysqli_prepare($link, "SELECT p.*, c.sCompanyName, c.sAddress AS sCompanyAddress, c.sGstin AS sCompanyGstin,
-                                       r.sReqNo
+                                       r.sReqNo, cd.sCandidateName, cd.sRef1
                                 FROM tblplacement p
                                 LEFT JOIN tblcompany c ON c.iCompanyId = p.iCompanyId
                                 LEFT JOIN tblrequirement r ON r.iReqId = p.iReqId
+                                LEFT JOIN tblcandidate cd ON cd.iCandidateId = p.iCandidateId
                                 WHERE p.iPlacementId = ?");
 mysqli_stmt_bind_param($stmt, "i", $id);
 mysqli_stmt_execute($stmt);

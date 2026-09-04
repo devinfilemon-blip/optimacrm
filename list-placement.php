@@ -2,7 +2,7 @@
 <?php include 'layouts/head-main.php'; ?>
 <?php include 'layouts/config.php'; ?>
 <head>
-    <title>Candidates &amp; Placements | <?php echo APP_NAME; ?></title>
+    <title>Placements | <?php echo APP_NAME; ?></title>
     <?php include 'layouts/head.php'; ?>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
@@ -15,7 +15,7 @@
                 <div class="row">
                     <div class="col-12">
                         <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                            <h4 class="mb-sm-0 font-size-18" id="pageTitle">Candidates &amp; Placements</h4>
+                            <h4 class="mb-sm-0 font-size-18" id="pageTitle">Placements</h4>
                             <div class="page-title-right d-flex align-items-center gap-2 flex-wrap" id="pageActions">
                                 <select id="statusFilter" class="form-select form-select-sm" style="width:auto;">
                                     <option value="">All Statuses</option>
@@ -27,7 +27,6 @@
                                     <option value="Not Joined">Not Joined</option>
                                 </select>
                                 <a href="list-placement.php?trashed=1" class="btn btn-outline-secondary btn-sm"><i class="bx bx-trash"></i> Trash</a>
-                                <a href="bulk-upload-candidates.php" class="btn btn-outline-primary btn-sm"><i class="bx bx-upload"></i> Bulk Upload</a>
                                 <a href="add-placement.php" class="btn btn-primary btn-sm"><i class="bx bx-plus"></i> Add Placement</a>
                             </div>
                         </div>
@@ -112,7 +111,7 @@ var CRM_TRASH_MODE = new URLSearchParams(window.location.search).get('trashed') 
 var placementRowsById = {};
 
 if (CRM_TRASH_MODE) {
-    document.getElementById('pageTitle').textContent = 'Candidates & Placements — Trash';
+    document.getElementById('pageTitle').textContent = 'Placements — Trash';
     document.getElementById('pageActions').innerHTML = '<a href="list-placement.php" class="btn btn-primary btn-sm"><i class="bx bx-arrow-back"></i> Back to List</a>';
 }
 
@@ -154,9 +153,12 @@ function fngetlistplacement() {
                             { label: 'Edit', icon: 'bx-edit-alt', href: 'add-placement.php?id=' + p.iPlacementId },
                             { label: 'Delete', icon: 'bx-trash', danger: true, onclick: 'deleteplacement(' + p.iPlacementId + ')' }
                           ]);
+                    var candidateCell = p.iCandidateId
+                        ? '<a href="add-candidate.php?id=' + p.iCandidateId + '" target="_blank">' + esc(p.sCandidateName) + '</a>'
+                        : esc(p.sCandidateName || '-');
                     rows += '<tr data-id="' + p.iPlacementId + '">' +
                         '<td>' + esc(p.sSelectionNo) + '</td>' +
-                        '<td>' + esc(p.sCandidateName) + '</td>' +
+                        '<td>' + candidateCell + '</td>' +
                         '<td>' + esc(p.sMobile || '-') + '</td>' +
                         '<td>' + esc(p.sCompanyName || '-') + '</td>' +
                         '<td>' + esc(p.sPost) + '</td>' +
@@ -217,7 +219,7 @@ function restoreplacement(id) {
 }
 
 function permanentlydeleteplacement(id) {
-    if (!confirm('Permanently delete this placement? This also removes any uploaded resume file and cannot be undone.')) return;
+    if (!confirm('Permanently delete this placement? This cannot be undone.')) return;
     fetch('api.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -250,8 +252,6 @@ if (!CRM_TRASH_MODE) {
         getRowId: function ($row) { return parseInt($row.data('id'), 10); },
         getFullRow: function (id) { return placementRowsById[id]; },
         fields: [
-            { cellIndex: 1, key: 'sCandidateName', type: 'text' },
-            { cellIndex: 2, key: 'sMobile', type: 'text' },
             { cellIndex: 3, key: 'iCompanyId', type: 'select', options: function (place) { withPlacementCompanyOptions(place); } },
             { cellIndex: 4, key: 'sPost', type: 'text' },
             { cellIndex: 5, key: 'dJoiningDate', type: 'date' },
@@ -266,15 +266,17 @@ if (!CRM_TRASH_MODE) {
             { cellIndex: 8, key: 'dRecAmount', type: 'number' },
             { cellIndex: 9, key: 'sWorkedBy', type: 'text' }
         ],
+        // Candidate name/mobile aren't inline-editable here anymore — they
+        // live on the Candidate record now (open it via the name link).
         toPayload: function (merged, id) {
             return {
-                id: id, reqId: merged.iReqId, type: merged.sType, candidateName: merged.sCandidateName, mobile: merged.sMobile,
+                id: id, candidateId: merged.iCandidateId, reqId: merged.iReqId,
                 post: merged.sPost, companyId: merged.iCompanyId, salary: merged.dSalary, joiningDate: merged.dJoiningDate,
-                joiningStatus: merged.sJoiningStatus, workedBy: merged.sWorkedBy, source: merged.sSource, remark: merged.sRemark,
+                joiningStatus: merged.sJoiningStatus, workedBy: merged.sWorkedBy, remark: merged.sRemark,
                 invoiceDate: merged.dInvoiceDate, invoiceNo: merged.sInvoiceNo, charges: merged.dCharges, cgst: merged.dCgst,
                 sgst: merged.dSgst, recAmount: merged.dRecAmount, paymentRecDate: merged.dPaymentRecDate, paymentMode: merged.sPaymentMode,
                 tds: merged.dTds, ipcInvDate: merged.dIpcInvDate, ipcInvNo: merged.sIpcInvNo, ipcInvAmt: merged.dIpcInvAmt,
-                paymentDate: merged.dPaymentDate, paymentDetails: merged.sPaymentDetails, ref1: merged.sRef1, ref2: merged.sRef2
+                paymentDate: merged.dPaymentDate, paymentDetails: merged.sPaymentDetails
             };
         },
         saveAction: 'updateplacement',

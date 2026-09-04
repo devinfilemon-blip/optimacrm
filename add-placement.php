@@ -2,6 +2,7 @@
 <?php include 'layouts/head-main.php'; ?>
 <?php include 'layouts/config.php';
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+$candidateId = isset($_GET['candidateId']) ? (int) $_GET['candidateId'] : 0;
 ?>
 <head>
     <title><?php echo $id ? 'Edit' : 'Add'; ?> Placement | <?php echo APP_NAME; ?></title>
@@ -37,38 +38,26 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                             <div class="card-body">
                                 <div><span id="message"></span></div>
                                 <input type="hidden" id="id" value="<?php echo $id; ?>">
+                                <input type="hidden" id="initialCandidateId" value="<?php echo $candidateId; ?>">
 
                                 <h5 class="mb-3">Candidate</h5>
                                 <div class="row">
-                                    <div class="col-md-4">
+                                    <div class="col-md-6">
                                         <div class="mb-3">
-                                            <label class="form-label">Candidate Name *</label>
-                                            <input type="text" class="form-control" id="candidateName" required>
+                                            <label class="form-label">Candidate *</label>
+                                            <select class="form-control" id="candidateId"><option value="">Loading&hellip;</option></select>
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label class="form-label">Mobile No</label>
-                                            <input type="text" class="form-control" id="mobile">
-                                            <div id="mobileWarning" class="text-danger small mt-1"></div>
-                                        </div>
+                                    <div class="col-md-6 d-flex align-items-center">
+                                        <a href="add-candidate.php" target="_blank" class="btn btn-outline-primary btn-sm mt-3">
+                                            <i class="bx bx-plus"></i> New Candidate
+                                        </a>
+                                        <span class="text-muted small ms-2 mt-3">Opens in a new tab — come back and refresh the list once saved.</span>
                                     </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label class="form-label">Resume</label>
-                                            <input type="file" class="form-control" id="resumeFile" accept=".pdf,.doc,.docx">
-                                            <div id="resumeCurrent" class="form-text"></div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label class="form-label">Type</label>
-                                            <select class="form-control" id="type">
-                                                <option value="NT">Non-Technical (NT)</option>
-                                                <option value="T">Technical (T)</option>
-                                            </select>
-                                        </div>
-                                    </div>
+                                </div>
+
+                                <h5 class="mb-3 mt-2">Placement</h5>
+                                <div class="row">
                                     <div class="col-md-4">
                                         <div class="mb-3">
                                             <label class="form-label">Company</label>
@@ -85,30 +74,6 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                                         <div class="mb-3">
                                             <label class="form-label">Post</label>
                                             <input type="text" class="form-control" id="post">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label class="form-label">Education</label>
-                                            <select class="form-control" id="education"><option value="">-- Select Education --</option></select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label class="form-label">Experience</label>
-                                            <input type="text" class="form-control" id="experience" placeholder="e.g. 2 years">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label class="form-label">Current Company</label>
-                                            <input type="text" class="form-control" id="currentCompany">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-8">
-                                        <div class="mb-3">
-                                            <label class="form-label">Address</label>
-                                            <textarea class="form-control" id="address" rows="1"></textarea>
                                         </div>
                                     </div>
                                     <div class="col-md-3">
@@ -138,26 +103,8 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                                     </div>
                                     <div class="col-md-3">
                                         <div class="mb-3">
-                                            <label class="form-label">Source</label>
-                                            <select class="form-control" id="source"><option value="">Loading&hellip;</option></select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="mb-3">
                                             <label class="form-label">Worked By</label>
                                             <input type="text" class="form-control" id="workedBy" placeholder="Recruiter name">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label class="form-label">Reference 1</label>
-                                            <input type="text" class="form-control" id="ref1">
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="mb-3">
-                                            <label class="form-label">Reference 2</label>
-                                            <input type="text" class="form-control" id="ref2">
                                         </div>
                                     </div>
                                     <div class="col-md-12">
@@ -297,11 +244,34 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 <?php include 'layouts/vendor-scripts.php'; ?>
 <script>
 var editId = parseInt(document.getElementById('id').value) || 0;
+var initialCandidateId = parseInt(document.getElementById('initialCandidateId').value) || 0;
 
 function showMessage(msg, ok) {
     var el = document.getElementById('message');
     el.innerHTML = msg;
     el.className = ok ? 'add-message' : 'error-message';
+}
+
+function loadCandidateDropdown(selected, cb) {
+    fetch('api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'fngetlistcandidate' })
+    })
+    .then(r => r.json())
+    .then(res => {
+        var sel = document.getElementById('candidateId');
+        sel.innerHTML = '<option value="">-- Select Candidate --</option>';
+        (res.data || []).forEach(function (c) {
+            var opt = document.createElement('option');
+            opt.value = c.iCandidateId;
+            opt.textContent = c.sCandidateName + (c.sMobile ? ' — ' + c.sMobile : '');
+            if (selected && parseInt(selected) === parseInt(c.iCandidateId)) opt.selected = true;
+            sel.appendChild(opt);
+        });
+        crmRefreshSelect2(sel);
+        if (cb) cb();
+    });
 }
 
 function loadCompanyDropdown(selected) {
@@ -324,67 +294,6 @@ function loadCompanyDropdown(selected) {
         crmRefreshSelect2(sel);
     });
 }
-
-function loadSourceDropdown(selected) {
-    fetch('api.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'fngetlistsource' })
-    })
-    .then(r => r.json())
-    .then(res => {
-        var sel = document.getElementById('source');
-        sel.innerHTML = '<option value="">-- Select Source --</option>';
-        (res.data || []).forEach(function (s) {
-            var opt = document.createElement('option');
-            opt.value = s.sSource;
-            opt.textContent = s.sSource;
-            if (selected && selected === s.sSource) opt.selected = true;
-            sel.appendChild(opt);
-        });
-        crmRefreshSelect2(sel);
-    });
-}
-
-function loadEducationDropdown(selected) {
-    fetch('api.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'fngetlisteducation' })
-    })
-    .then(r => r.json())
-    .then(res => {
-        var sel = document.getElementById('education');
-        sel.innerHTML = '<option value="">-- Select Education --</option>';
-        (res.data || []).forEach(function (e) {
-            var opt = document.createElement('option');
-            opt.value = e.sEducation;
-            opt.textContent = e.sEducation;
-            if (selected && selected === e.sEducation) opt.selected = true;
-            sel.appendChild(opt);
-        });
-        crmRefreshSelect2(sel);
-    });
-}
-
-function checkMobileDuplicate(cb) {
-    var mobile = document.getElementById('mobile').value.trim();
-    var warnEl = document.getElementById('mobileWarning');
-    if (!mobile) { warnEl.textContent = ''; cb(false); return; }
-    fetch('api.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'checkcandidatemobile', mobile: mobile, excludeId: editId })
-    })
-    .then(r => r.json())
-    .then(res => {
-        var dup = !!(res.data && res.data.exists);
-        warnEl.textContent = dup ? 'A candidate with this mobile number already exists.' : '';
-        cb(dup);
-    })
-    .catch(function () { cb(false); });
-}
-document.getElementById('mobile').addEventListener('blur', function () { checkMobileDuplicate(function () {}); });
 
 function loadRequirementDropdown(selected) {
     fetch('api.php', {
@@ -427,11 +336,13 @@ $('#gstPercent').on('change', recalcGst);
 
 function loadPlacement() {
     loadCompanyDropdown(null);
-    loadSourceDropdown(null);
     loadRequirementDropdown(null);
-    loadEducationDropdown(null);
 
-    if (!editId) { recalcGst(); return; }
+    if (!editId) {
+        loadCandidateDropdown(initialCandidateId || null);
+        recalcGst();
+        return;
+    }
     fetch('api.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -441,27 +352,17 @@ function loadPlacement() {
     .then(res => {
         if (res.status !== 'success') { showMessage(res.message, false); return; }
         var d = res.data;
+        loadCandidateDropdown(d.iCandidateId);
         loadCompanyDropdown(d.iCompanyId);
         loadRequirementDropdown(d.iReqId);
-        loadSourceDropdown(d.sSource);
-        loadEducationDropdown(d.sEducation);
 
-        document.getElementById('candidateName').value = d.sCandidateName || '';
-        document.getElementById('mobile').value = d.sMobile || '';
-        document.getElementById('type').value = d.sType || 'NT';
-        crmRefreshSelect2(document.getElementById('type'));
         document.getElementById('post').value = d.sPost || '';
-        document.getElementById('experience').value = d.sExperience || '';
-        document.getElementById('currentCompany').value = d.sCurrentCompany || '';
-        document.getElementById('address').value = d.sAddress || '';
         document.getElementById('ctc').value = d.dCtc || '';
         document.getElementById('joiningDate').value = d.dJoiningDate || '';
         document.getElementById('joiningStatus').value = d.sJoiningStatus || 'Offer Accepted';
         crmRefreshSelect2(document.getElementById('joiningStatus'));
         document.getElementById('workedBy').value = d.sWorkedBy || '';
         document.getElementById('remark').value = d.sRemark || '';
-        document.getElementById('ref1').value = d.sRef1 || '';
-        document.getElementById('ref2').value = d.sRef2 || '';
 
         document.getElementById('invoiceDate').value = d.dInvoiceDate || '';
         document.getElementById('invoiceNo').value = d.sInvoiceNo || '';
@@ -479,43 +380,25 @@ function loadPlacement() {
         document.getElementById('ipcInvAmt').value = d.dIpcInvAmt || 0;
         document.getElementById('paymentDate').value = d.dPaymentDate || '';
         document.getElementById('paymentDetails').value = d.sPaymentDetails || '';
-
-        renderResumeCurrent(d.sResumePath);
     });
 }
 
 function savePlacement() {
-    var candidateName = document.getElementById('candidateName').value.trim();
-    if (!candidateName) { alert('Please enter the candidate name.'); return; }
+    var candidateId = document.getElementById('candidateId').value;
+    if (!candidateId) { alert('Please select a candidate.'); return; }
 
-    checkMobileDuplicate(function (isDuplicate) {
-        if (isDuplicate) { showMessage('A candidate with this mobile number already exists.', false); return; }
-        doSavePlacement(candidateName);
-    });
-}
-
-function doSavePlacement(candidateName) {
     var data = {
         action: editId ? 'updateplacement' : 'addplacement',
         id: editId,
-        candidateName: candidateName,
-        mobile: document.getElementById('mobile').value,
-        type: document.getElementById('type').value,
+        candidateId: candidateId,
         companyId: document.getElementById('companyId').value,
         reqId: document.getElementById('reqId').value,
         post: document.getElementById('post').value,
-        education: document.getElementById('education').value,
-        experience: document.getElementById('experience').value,
-        currentCompany: document.getElementById('currentCompany').value,
-        address: document.getElementById('address').value,
         ctc: document.getElementById('ctc').value,
         joiningDate: document.getElementById('joiningDate').value,
         joiningStatus: document.getElementById('joiningStatus').value,
-        source: document.getElementById('source').value,
         workedBy: document.getElementById('workedBy').value,
         remark: document.getElementById('remark').value,
-        ref1: document.getElementById('ref1').value,
-        ref2: document.getElementById('ref2').value,
         invoiceDate: document.getElementById('invoiceDate').value,
         invoiceNo: document.getElementById('invoiceNo').value,
         charges: document.getElementById('charges').value,
@@ -541,51 +424,7 @@ function doSavePlacement(candidateName) {
     .then(res => {
         showMessage(res.message, res.status === 'success');
         if (res.status !== 'success') return;
-        var savedId = editId || (res.data && res.data.id);
-        var pendingResume = document.getElementById('resumeFile').files[0];
-        if (savedId && pendingResume) {
-            uploadResume(savedId, pendingResume, function () {
-                setTimeout(function () { window.location.href = 'list-placement.php'; }, 500);
-            });
-        } else {
-            setTimeout(function () { window.location.href = 'list-placement.php'; }, 500);
-        }
-    });
-}
-
-function renderResumeCurrent(path) {
-    var el = document.getElementById('resumeCurrent');
-    if (!path) { el.innerHTML = 'No resume uploaded yet.'; return; }
-    el.innerHTML = '<a href="download-resume.php?id=' + editId + '" target="_blank">View current resume</a> &middot; ' +
-        '<a href="javascript:void(0);" onclick="removeResume();" class="text-danger">Remove</a>';
-}
-
-function uploadResume(id, file, cb) {
-    var fd = new FormData();
-    fd.append('action', 'uploadresume');
-    fd.append('id', id);
-    fd.append('resume', file);
-    fetch('api.php', { method: 'POST', body: fd })
-        .then(r => r.json())
-        .then(res => {
-            if (res.status !== 'success') { showMessage(res.message, false); }
-            if (cb) cb();
-        })
-        .catch(function () { if (cb) cb(); });
-}
-
-function removeResume() {
-    if (!editId) return;
-    if (!confirm('Remove the uploaded resume?')) return;
-    fetch('api.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'deleteresume', id: editId })
-    })
-    .then(r => r.json())
-    .then(res => {
-        showMessage(res.message, res.status === 'success');
-        if (res.status === 'success') { renderResumeCurrent(null); document.getElementById('resumeFile').value = ''; }
+        setTimeout(function () { window.location.href = 'list-placement.php'; }, 500);
     });
 }
 

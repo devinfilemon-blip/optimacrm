@@ -3,9 +3,9 @@ include 'layouts/session.php';
 include 'layouts/config.php';
 
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
-if (!$id) { http_response_code(404); die('Invalid placement id.'); }
+if (!$id) { http_response_code(404); die('Invalid candidate id.'); }
 
-$stmt = mysqli_prepare($link, "SELECT sResumePath, sCandidateName FROM tblplacement WHERE iPlacementId = ?");
+$stmt = mysqli_prepare($link, "SELECT sResumePath, sCandidateName FROM tblcandidate WHERE iCandidateId = ?");
 mysqli_stmt_bind_param($stmt, "i", $id);
 mysqli_stmt_execute($stmt);
 $row = mysqli_stmt_get_result($stmt)->fetch_assoc();

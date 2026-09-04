@@ -18,7 +18,7 @@
                             <h4 class="mb-sm-0 font-size-18">Bulk Upload Candidates</h4>
                             <div class="page-title-right">
                                 <ol class="breadcrumb m-0">
-                                    <li class="breadcrumb-item"><a href="list-placement.php">Candidates &amp; Placements</a></li>
+                                    <li class="breadcrumb-item"><a href="list-candidate.php">Candidates</a></li>
                                     <li class="breadcrumb-item active">Bulk Upload</li>
                                 </ol>
                             </div>
@@ -51,7 +51,7 @@
                                 <button type="button" class="btn btn-primary w-md" id="uploadBtn" onclick="uploadCandidates();">
                                     <i class="bx bx-upload"></i> Upload &amp; Import
                                 </button>
-                                <a href="list-placement.php" class="btn btn-secondary w-md">Back to List</a>
+                                <a href="list-candidate.php" class="btn btn-secondary w-md">Back to List</a>
                             </div>
                         </div>
 

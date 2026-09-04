@@ -70,10 +70,10 @@ function reqInt($arr, $key, $default = null) {
 function candidateMobileDuplicateExists($link, $mobile, $excludeId = null) {
     if ($mobile === null || $mobile === '') return false;
     if ($excludeId) {
-        $stmt = mysqli_prepare($link, "SELECT iPlacementId FROM tblplacement WHERE sMobile = ? AND iPlacementId <> ? LIMIT 1");
+        $stmt = mysqli_prepare($link, "SELECT iCandidateId FROM tblcandidate WHERE sMobile = ? AND iCandidateId <> ? LIMIT 1");
         mysqli_stmt_bind_param($stmt, "si", $mobile, $excludeId);
     } else {
-        $stmt = mysqli_prepare($link, "SELECT iPlacementId FROM tblplacement WHERE sMobile = ? LIMIT 1");
+        $stmt = mysqli_prepare($link, "SELECT iCandidateId FROM tblcandidate WHERE sMobile = ? LIMIT 1");
         mysqli_stmt_bind_param($stmt, "s", $mobile);
     }
     mysqli_stmt_execute($stmt);
@@ -390,7 +390,7 @@ if ($action === 'dashboardStats') {
     $stats['weeklyStatusBoard'] = ['days' => ['Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], 'dates' => $weekDates, 'rows' => $weeklyRows];
 
     $leadSourceRows = [];
-    $r = mysqli_query($link, "SELECT sSource, COUNT(*) c FROM tblplacement WHERE dDeletedAt IS NULL AND sSource IS NOT NULL AND sSource <> '' GROUP BY sSource ORDER BY c DESC");
+    $r = mysqli_query($link, "SELECT sSource, COUNT(*) c FROM tblcandidate WHERE dDeletedAt IS NULL AND sSource IS NOT NULL AND sSource <> '' GROUP BY sSource ORDER BY c DESC");
     while ($row = mysqli_fetch_assoc($r)) { $leadSourceRows[] = $row; }
     $stats['leadSourceBreakdown'] = $leadSourceRows;
 
@@ -426,8 +426,10 @@ if ($action === 'dashboardStats') {
     $stats['recentRequirements'] = $recentReq;
 
     $recentPlace = [];
-    $r = mysqli_query($link, "SELECT p.iPlacementId, p.sCandidateName, p.sPost, p.sJoiningStatus, p.dJoiningDate, c.sCompanyName
-                               FROM tblplacement p LEFT JOIN tblcompany c ON c.iCompanyId = p.iCompanyId
+    $r = mysqli_query($link, "SELECT p.iPlacementId, cd.sCandidateName, p.sPost, p.sJoiningStatus, p.dJoiningDate, c.sCompanyName
+                               FROM tblplacement p
+                               LEFT JOIN tblcompany c ON c.iCompanyId = p.iCompanyId
+                               LEFT JOIN tblcandidate cd ON cd.iCandidateId = p.iCandidateId
                                WHERE p.dDeletedAt IS NULL
                                ORDER BY p.iPlacementId DESC LIMIT 6");
     while ($row = mysqli_fetch_assoc($r)) { $recentPlace[] = $row; }
@@ -652,81 +654,44 @@ if ($action === 'deleterequirement') {
 }
 
 // =====================================================================
-// PLACEMENTS
+// CANDIDATES
 // =====================================================================
-if ($action === 'fngetlistplacement') {
+if ($action === 'fngetlistcandidate') {
     $rows = [];
-    $r = mysqli_query($link, "SELECT p.*, c.sCompanyName
-                               FROM tblplacement p LEFT JOIN tblcompany c ON c.iCompanyId = p.iCompanyId
-                               WHERE p.dDeletedAt IS NULL
-                               ORDER BY p.iPlacementId DESC");
+    $r = mysqli_query($link, "SELECT cd.*,
+        (SELECT COUNT(*) FROM tblplacement p WHERE p.iCandidateId = cd.iCandidateId AND p.dDeletedAt IS NULL) AS placementCount
+        FROM tblcandidate cd WHERE cd.dDeletedAt IS NULL ORDER BY cd.iCandidateId DESC");
     while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
     sendResponse("success", "ok", $rows);
 }
 
-if ($action === 'fngetlisttrashplacement') {
+if ($action === 'fngetlisttrashcandidate') {
     if (!$isAdmin) sendResponse("error", "Not authorized.");
     $rows = [];
-    $r = mysqli_query($link, "SELECT p.*, c.sCompanyName
-                               FROM tblplacement p LEFT JOIN tblcompany c ON c.iCompanyId = p.iCompanyId
-                               WHERE p.dDeletedAt IS NOT NULL
-                               ORDER BY p.dDeletedAt DESC");
+    $r = mysqli_query($link, "SELECT * FROM tblcandidate WHERE dDeletedAt IS NOT NULL ORDER BY dDeletedAt DESC");
     while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
     sendResponse("success", "ok", $rows);
 }
 
-if ($action === 'fngetlistoutstandinginvoices') {
-    $rows = [];
-    $r = mysqli_query($link, "SELECT p.iPlacementId, p.sInvoiceNo, p.dInvoiceDate, p.sCandidateName, p.dAmount, p.dRecAmount, c.sCompanyName
-                               FROM tblplacement p LEFT JOIN tblcompany c ON c.iCompanyId = p.iCompanyId
-                               WHERE p.dDeletedAt IS NULL AND p.dAmount > p.dRecAmount
-                               ORDER BY (p.dInvoiceDate IS NULL) ASC, p.dInvoiceDate ASC, p.iPlacementId DESC");
-    while ($row = mysqli_fetch_assoc($r)) {
-        $pending = (float) $row['dAmount'] - (float) $row['dRecAmount'];
-        $row['dPendingAmount'] = $pending;
-        $row['sPaymentStatus'] = ((float) $row['dRecAmount'] > 0) ? 'Partially Paid' : 'Unpaid';
-        $rows[] = $row;
-    }
-    sendResponse("success", "ok", $rows);
-}
-
-if ($action === 'restoreplacement') {
-    if (!$isAdmin) sendResponse("error", "Not authorized.");
+if ($action === 'getcandidatebyid') {
     $id = reqInt($inputData, 'id', 0);
-    if (!$id) sendResponse("error", "Invalid placement id.");
-    $stmt = mysqli_prepare($link, "UPDATE tblplacement SET dDeletedAt = NULL WHERE iPlacementId = ?");
-    mysqli_stmt_bind_param($stmt, "i", $id);
-    mysqli_stmt_execute($stmt);
-    sendResponse("success", "Placement restored successfully.");
-}
-
-if ($action === 'permanentlydeleteplacement') {
-    if (!$isAdmin) sendResponse("error", "Not authorized.");
-    $id = reqInt($inputData, 'id', 0);
-    if (!$id) sendResponse("error", "Invalid placement id.");
-    $stmt = mysqli_prepare($link, "SELECT sResumePath FROM tblplacement WHERE iPlacementId = ? AND dDeletedAt IS NOT NULL");
+    $stmt = mysqli_prepare($link, "SELECT * FROM tblcandidate WHERE iCandidateId = ?");
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
     $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
-    if ($row && $row['sResumePath']) {
-        $full = __DIR__ . '/uploads/resumes/' . basename($row['sResumePath']);
-        if (is_file($full)) @unlink($full);
-    }
-    $stmt = mysqli_prepare($link, "DELETE FROM tblplacement WHERE iPlacementId = ? AND dDeletedAt IS NOT NULL");
-    mysqli_stmt_bind_param($stmt, "i", $id);
-    mysqli_stmt_execute($stmt);
-    sendResponse("success", "Placement permanently deleted.");
-}
+    if (!$row) sendResponse("error", "Candidate not found.");
 
-if ($action === 'getplacementbyid') {
-    $id = reqInt($inputData, 'id', 0);
-    $stmt = mysqli_prepare($link, "SELECT * FROM tblplacement WHERE iPlacementId = ?");
+    $stmt = mysqli_prepare($link, "SELECT p.iPlacementId, p.sPost, p.sJoiningStatus, p.dJoiningDate, c.sCompanyName
+                                    FROM tblplacement p LEFT JOIN tblcompany c ON c.iCompanyId = p.iCompanyId
+                                    WHERE p.iCandidateId = ? AND p.dDeletedAt IS NULL ORDER BY p.iPlacementId DESC");
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
+    $placements = [];
     $res = mysqli_stmt_get_result($stmt);
-    $row = mysqli_fetch_assoc($res);
-    if ($row) sendResponse("success", "ok", $row);
-    sendResponse("error", "Placement not found.");
+    while ($p = mysqli_fetch_assoc($res)) { $placements[] = $p; }
+    $row['placements'] = $placements;
+
+    sendResponse("success", "ok", $row);
 }
 
 if ($action === 'checkcandidatemobile') {
@@ -736,111 +701,67 @@ if ($action === 'checkcandidatemobile') {
     sendResponse("success", "ok", ["exists" => $exists]);
 }
 
-if ($action === 'addplacement' || $action === 'updateplacement') {
+if ($action === 'addcandidate' || $action === 'updatecandidate') {
     $candidateName = reqStr($inputData, 'candidateName');
     if (!$candidateName) sendResponse("error", "Candidate name is required.");
 
-    $id = ($action === 'updateplacement') ? reqInt($inputData, 'id', 0) : null;
-    if ($action === 'updateplacement' && !$id) sendResponse("error", "Invalid placement id.");
+    $id = ($action === 'updatecandidate') ? reqInt($inputData, 'id', 0) : null;
+    if ($action === 'updatecandidate' && !$id) sendResponse("error", "Invalid candidate id.");
 
-    $companyId = reqInt($inputData, 'companyId', null);
-    $reqId = reqInt($inputData, 'reqId', null);
+    $mobile = reqStr($inputData, 'mobile');
     $type = reqStr($inputData, 'type', 'NT');
     $type = in_array($type, ['T', 'NT'], true) ? $type : 'NT';
-    $mobile = reqStr($inputData, 'mobile');
-    $post = reqStr($inputData, 'post');
     $education = reqStr($inputData, 'education');
     $experience = reqStr($inputData, 'experience');
     $currentCompany = reqStr($inputData, 'currentCompany');
     $address = reqStr($inputData, 'address');
-    $salary = reqNum($inputData, 'salary', 0);
-    $ctc = reqNum($inputData, 'ctc', 0);
-    $joiningDate = reqStr($inputData, 'joiningDate');
-    $joiningStatus = reqStr($inputData, 'joiningStatus', 'Offer Accepted');
-    $workedBy = reqStr($inputData, 'workedBy');
     $source = reqStr($inputData, 'source');
-    $remark = reqStr($inputData, 'remark');
-    $invoiceDate = reqStr($inputData, 'invoiceDate');
-    $invoiceNo = reqStr($inputData, 'invoiceNo');
-    $charges = reqNum($inputData, 'charges', 0);
-    $cgst = reqNum($inputData, 'cgst', 0);
-    $sgst = reqNum($inputData, 'sgst', 0);
-    $totalGst = round($cgst + $sgst, 2);
-    $amount = round($charges + $totalGst, 2);
-    $recAmount = reqNum($inputData, 'recAmount', 0);
-    $paymentRecDate = reqStr($inputData, 'paymentRecDate');
-    $paymentMode = reqStr($inputData, 'paymentMode');
-    $tds = reqNum($inputData, 'tds', 0);
-    $ipcInvDate = reqStr($inputData, 'ipcInvDate');
-    $ipcInvNo = reqStr($inputData, 'ipcInvNo');
-    $ipcInvAmt = reqNum($inputData, 'ipcInvAmt', 0);
-    $paymentDate = reqStr($inputData, 'paymentDate');
-    $paymentDetails = reqStr($inputData, 'paymentDetails');
     $ref1 = reqStr($inputData, 'ref1');
     $ref2 = reqStr($inputData, 'ref2');
+    $remark = reqStr($inputData, 'remark');
 
     if ($mobile && candidateMobileDuplicateExists($link, $mobile, $id)) {
         sendResponse("error", "A candidate with this mobile number already exists.");
     }
 
-    if ($action === 'addplacement') {
-        $r = mysqli_query($link, "SELECT COALESCE(MAX(iPlacementId),0)+1 n FROM tblplacement");
-        $nextId = (int) mysqli_fetch_assoc($r)['n'];
-        $selNo = date('y') . date('m') . str_pad($nextId, 3, '0', STR_PAD_LEFT);
-
-        $stmt = mysqli_prepare($link, "INSERT INTO tblplacement
-            (sSelectionNo, iReqId, sType, sCandidateName, sMobile, sPost, sEducation, sExperience, sCurrentCompany, sAddress,
-             iCompanyId, dSalary, dCtc, dJoiningDate, sJoiningStatus,
-             sWorkedBy, sSource, sRemark, dInvoiceDate, sInvoiceNo, dCharges, dCgst, dSgst, dTotalGst, dAmount, dRecAmount,
-             dPaymentRecDate, sPaymentMode, dTds, dIpcInvDate, sIpcInvNo, dIpcInvAmt, dPaymentDate, sPaymentDetails, sRef1, sRef2, iCreatedBy)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+    if ($action === 'addcandidate') {
+        $stmt = mysqli_prepare($link, "INSERT INTO tblcandidate
+            (sCandidateName, sMobile, sType, sEducation, sExperience, sCurrentCompany, sAddress, sSource, sRef1, sRef2, sRemark, iCreatedBy)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
         bindDynamic($stmt, [
-            ['s', $selNo], ['i', $reqId], ['s', $type], ['s', $candidateName], ['s', $mobile], ['s', $post],
-            ['s', $education], ['s', $experience], ['s', $currentCompany], ['s', $address],
-            ['i', $companyId], ['d', $salary], ['d', $ctc], ['s', $joiningDate], ['s', $joiningStatus],
-            ['s', $workedBy], ['s', $source], ['s', $remark], ['s', $invoiceDate], ['s', $invoiceNo],
-            ['d', $charges], ['d', $cgst], ['d', $sgst], ['d', $totalGst], ['d', $amount], ['d', $recAmount],
-            ['s', $paymentRecDate], ['s', $paymentMode], ['d', $tds], ['s', $ipcInvDate], ['s', $ipcInvNo],
-            ['d', $ipcInvAmt], ['s', $paymentDate], ['s', $paymentDetails], ['s', $ref1], ['s', $ref2], ['i', $currentUserId],
+            ['s', $candidateName], ['s', $mobile], ['s', $type], ['s', $education], ['s', $experience],
+            ['s', $currentCompany], ['s', $address], ['s', $source], ['s', $ref1], ['s', $ref2], ['s', $remark], ['i', $currentUserId],
         ]);
         mysqli_stmt_execute($stmt);
         if (mysqli_stmt_errno($stmt)) {
             $msg = (mysqli_stmt_errno($stmt) === 1062)
                 ? "A candidate with this mobile number already exists."
-                : "Could not save placement. Please check the values entered.";
+                : "Could not save candidate. Please check the values entered.";
             sendResponse("error", $msg);
         }
-        sendResponse("success", "Placement added successfully.", ["selectionNo" => $selNo, "id" => mysqli_insert_id($link)]);
+        sendResponse("success", "Candidate added successfully.", ["id" => mysqli_insert_id($link)]);
     } else {
-        $stmt = mysqli_prepare($link, "UPDATE tblplacement SET
-            iReqId=?, sType=?, sCandidateName=?, sMobile=?, sPost=?, sEducation=?, sExperience=?, sCurrentCompany=?, sAddress=?,
-            iCompanyId=?, dSalary=?, dCtc=?, dJoiningDate=?, sJoiningStatus=?,
-            sWorkedBy=?, sSource=?, sRemark=?, dInvoiceDate=?, sInvoiceNo=?, dCharges=?, dCgst=?, dSgst=?, dTotalGst=?, dAmount=?, dRecAmount=?,
-            dPaymentRecDate=?, sPaymentMode=?, dTds=?, dIpcInvDate=?, sIpcInvNo=?, dIpcInvAmt=?, dPaymentDate=?, sPaymentDetails=?, sRef1=?, sRef2=?
-            WHERE iPlacementId=?");
+        $stmt = mysqli_prepare($link, "UPDATE tblcandidate SET
+            sCandidateName=?, sMobile=?, sType=?, sEducation=?, sExperience=?, sCurrentCompany=?, sAddress=?, sSource=?, sRef1=?, sRef2=?, sRemark=?
+            WHERE iCandidateId=?");
         bindDynamic($stmt, [
-            ['i', $reqId], ['s', $type], ['s', $candidateName], ['s', $mobile], ['s', $post],
-            ['s', $education], ['s', $experience], ['s', $currentCompany], ['s', $address], ['i', $companyId],
-            ['d', $salary], ['d', $ctc], ['s', $joiningDate], ['s', $joiningStatus],
-            ['s', $workedBy], ['s', $source], ['s', $remark], ['s', $invoiceDate], ['s', $invoiceNo],
-            ['d', $charges], ['d', $cgst], ['d', $sgst], ['d', $totalGst], ['d', $amount], ['d', $recAmount],
-            ['s', $paymentRecDate], ['s', $paymentMode], ['d', $tds], ['s', $ipcInvDate], ['s', $ipcInvNo],
-            ['d', $ipcInvAmt], ['s', $paymentDate], ['s', $paymentDetails], ['s', $ref1], ['s', $ref2], ['i', $id],
+            ['s', $candidateName], ['s', $mobile], ['s', $type], ['s', $education], ['s', $experience],
+            ['s', $currentCompany], ['s', $address], ['s', $source], ['s', $ref1], ['s', $ref2], ['s', $remark], ['i', $id],
         ]);
         mysqli_stmt_execute($stmt);
         if (mysqli_stmt_errno($stmt)) {
             $msg = (mysqli_stmt_errno($stmt) === 1062)
                 ? "A candidate with this mobile number already exists."
-                : "Could not save placement. Please check the values entered.";
+                : "Could not save candidate. Please check the values entered.";
             sendResponse("error", $msg);
         }
-        sendResponse("success", "Placement updated successfully.");
+        sendResponse("success", "Candidate updated successfully.");
     }
 }
 
 if ($action === 'uploadresume') {
     $id = reqInt($inputData, 'id', 0);
-    if (!$id) sendResponse("error", "Save the placement before uploading a resume.");
+    if (!$id) sendResponse("error", "Save the candidate before uploading a resume.");
     if (empty($_FILES['resume']) || $_FILES['resume']['error'] !== UPLOAD_ERR_OK) {
         sendResponse("error", "Please choose a resume file to upload.");
     }
@@ -853,11 +774,11 @@ if ($action === 'uploadresume') {
         sendResponse("error", "Resume file must be under 5 MB.");
     }
 
-    $stmt = mysqli_prepare($link, "SELECT sResumePath FROM tblplacement WHERE iPlacementId = ?");
+    $stmt = mysqli_prepare($link, "SELECT sResumePath FROM tblcandidate WHERE iCandidateId = ?");
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
     $existing = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
-    if (!$existing) sendResponse("error", "Placement not found.");
+    if (!$existing) sendResponse("error", "Candidate not found.");
 
     $uploadDir = __DIR__ . '/uploads/resumes/';
     if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
@@ -866,7 +787,7 @@ if ($action === 'uploadresume') {
         sendResponse("error", "Could not save the uploaded file.");
     }
 
-    $stmt = mysqli_prepare($link, "UPDATE tblplacement SET sResumePath = ? WHERE iPlacementId = ?");
+    $stmt = mysqli_prepare($link, "UPDATE tblcandidate SET sResumePath = ? WHERE iCandidateId = ?");
     mysqli_stmt_bind_param($stmt, "si", $storedName, $id);
     mysqli_stmt_execute($stmt);
 
@@ -881,8 +802,8 @@ if ($action === 'uploadresume') {
 
 if ($action === 'deleteresume') {
     $id = reqInt($inputData, 'id', 0);
-    if (!$id) sendResponse("error", "Invalid placement id.");
-    $stmt = mysqli_prepare($link, "SELECT sResumePath FROM tblplacement WHERE iPlacementId = ?");
+    if (!$id) sendResponse("error", "Invalid candidate id.");
+    $stmt = mysqli_prepare($link, "SELECT sResumePath FROM tblcandidate WHERE iCandidateId = ?");
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
     $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
@@ -890,10 +811,51 @@ if ($action === 'deleteresume') {
         $full = __DIR__ . '/uploads/resumes/' . basename($row['sResumePath']);
         if (is_file($full)) @unlink($full);
     }
-    $stmt = mysqli_prepare($link, "UPDATE tblplacement SET sResumePath = NULL WHERE iPlacementId = ?");
+    $stmt = mysqli_prepare($link, "UPDATE tblcandidate SET sResumePath = NULL WHERE iCandidateId = ?");
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
     sendResponse("success", "Resume removed.");
+}
+
+if ($action === 'deletecandidate') {
+    if (!$isAdmin && !$isTeamLeader) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid candidate id.");
+    // Soft delete only — placements linked to this candidate keep working
+    // (the join just won't show the candidate under the active list).
+    $stmt = mysqli_prepare($link, "UPDATE tblcandidate SET dDeletedAt = NOW() WHERE iCandidateId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Candidate moved to trash.");
+}
+
+if ($action === 'restorecandidate') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid candidate id.");
+    $stmt = mysqli_prepare($link, "UPDATE tblcandidate SET dDeletedAt = NULL WHERE iCandidateId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Candidate restored successfully.");
+}
+
+if ($action === 'permanentlydeletecandidate') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid candidate id.");
+    $stmt = mysqli_prepare($link, "SELECT sResumePath FROM tblcandidate WHERE iCandidateId = ? AND dDeletedAt IS NOT NULL");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    if (!$row) sendResponse("error", "Candidate not found in trash.");
+    if ($row['sResumePath']) {
+        $full = __DIR__ . '/uploads/resumes/' . basename($row['sResumePath']);
+        if (is_file($full)) @unlink($full);
+    }
+    $stmt = mysqli_prepare($link, "DELETE FROM tblcandidate WHERE iCandidateId = ? AND dDeletedAt IS NOT NULL");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Candidate permanently deleted.");
 }
 
 // =====================================================================
@@ -922,9 +884,8 @@ if ($action === 'importcandidates') {
     }
 
     $expectedHeaders = [
-        'Candidate Name', 'Mobile Number', 'Post', 'Company Name', 'Type (T/NT)',
-        'Education', 'Experience', 'Current Company', 'Address', 'Annual CTC',
-        'Joining Date (YYYY-MM-DD)', 'Joining Status', 'Source', 'Worked By', 'Remark',
+        'Candidate Name', 'Mobile Number', 'Type (T/NT)',
+        'Education', 'Experience', 'Current Company', 'Address', 'Source', 'Remark',
     ];
     $headerRow = array_map(function ($h) { return trim((string) $h); }, $rows[0]);
     $colIndex = [];
@@ -942,19 +903,13 @@ if ($action === 'importcandidates') {
         sendResponse("error", "This file has too many rows. Please split it into batches of $maxRows or fewer.");
     }
 
-    $validStatuses = ['Offer Accepted', 'Joined', 'Invoice Sent', 'Amount Received', 'Job Left', 'Not Joined'];
-
     $getCell = function ($row, $key) use ($colIndex) {
         $idx = $colIndex[$key];
         return ($idx !== null && isset($row[$idx])) ? trim((string) $row[$idx]) : '';
     };
 
-    $companyByName = [];
-    $cr = mysqli_query($link, "SELECT iCompanyId, sCompanyName FROM tblcompany WHERE dDeletedAt IS NULL");
-    while ($crow = mysqli_fetch_assoc($cr)) { $companyByName[mb_strtolower(trim($crow['sCompanyName']))] = (int) $crow['iCompanyId']; }
-
     $existingMobiles = [];
-    $mr = mysqli_query($link, "SELECT sMobile FROM tblplacement WHERE sMobile IS NOT NULL AND sMobile <> ''");
+    $mr = mysqli_query($link, "SELECT sMobile FROM tblcandidate WHERE sMobile IS NOT NULL AND sMobile <> ''");
     while ($mrow = mysqli_fetch_assoc($mr)) { $existingMobiles[$mrow['sMobile']] = true; }
 
     $seenMobilesInFile = [];
@@ -997,34 +952,6 @@ if ($action === 'importcandidates') {
         if ($type === '') $type = 'NT';
         if (!in_array($type, ['T', 'NT'], true)) { $errors[] = "Type must be T or NT (got '$type')."; }
 
-        $companyName = $getCell($row, 'Company Name');
-        $companyId = null;
-        if ($companyName !== '') {
-            $key = mb_strtolower($companyName);
-            if (isset($companyByName[$key])) { $companyId = $companyByName[$key]; }
-            else { $errors[] = "Company '$companyName' was not found."; }
-        }
-
-        $ctcRaw = $getCell($row, 'Annual CTC');
-        $ctc = 0;
-        if ($ctcRaw !== '') {
-            if (!is_numeric($ctcRaw)) { $errors[] = 'Annual CTC must be a number.'; }
-            else { $ctc = (float) $ctcRaw; }
-        }
-
-        $joiningDateRaw = $getCell($row, 'Joining Date (YYYY-MM-DD)');
-        $joiningDate = null;
-        if ($joiningDateRaw !== '') {
-            $joiningDate = xlsx_parse_maybe_date($joiningDateRaw);
-            if ($joiningDate === null) { $errors[] = "Joining Date '$joiningDateRaw' is not a valid date."; }
-        }
-
-        $joiningStatus = $getCell($row, 'Joining Status');
-        if ($joiningStatus === '') { $joiningStatus = 'Offer Accepted'; }
-        elseif (!in_array($joiningStatus, $validStatuses, true)) {
-            $errors[] = "Joining Status '$joiningStatus' is not valid.";
-        }
-
         if (!empty($errors)) {
             $failedCount++;
             if ($isDuplicate) $duplicateCount++;
@@ -1035,12 +962,10 @@ if ($action === 'importcandidates') {
         if ($mobile !== null) { $seenMobilesInFile[$mobile] = $excelRowNumber; }
 
         $validRows[] = [
-            'candidateName' => $name, 'mobile' => $mobile, 'post' => $getCell($row, 'Post'),
-            'companyId' => $companyId, 'type' => $type,
+            'candidateName' => $name, 'mobile' => $mobile, 'type' => $type,
             'education' => $getCell($row, 'Education'), 'experience' => $getCell($row, 'Experience'),
             'currentCompany' => $getCell($row, 'Current Company'), 'address' => $getCell($row, 'Address'),
-            'ctc' => $ctc, 'joiningDate' => $joiningDate, 'joiningStatus' => $joiningStatus,
-            'source' => $getCell($row, 'Source'), 'workedBy' => $getCell($row, 'Worked By'), 'remark' => $getCell($row, 'Remark'),
+            'source' => $getCell($row, 'Source'), 'remark' => $getCell($row, 'Remark'),
         ];
     }
 
@@ -1048,20 +973,14 @@ if ($action === 'importcandidates') {
     if (!empty($validRows)) {
         mysqli_begin_transaction($link);
         try {
-            $r = mysqli_query($link, "SELECT COALESCE(MAX(iPlacementId),0) n FROM tblplacement");
-            $nextId = (int) mysqli_fetch_assoc($r)['n'];
-
-            $stmt = mysqli_prepare($link, "INSERT INTO tblplacement
-                (sSelectionNo, sType, sCandidateName, sMobile, sPost, iCompanyId, dCtc, sJoiningStatus, sSource, sWorkedBy, sRemark,
-                 sEducation, sExperience, sCurrentCompany, sAddress, dJoiningDate, iCreatedBy)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+            $stmt = mysqli_prepare($link, "INSERT INTO tblcandidate
+                (sCandidateName, sMobile, sType, sEducation, sExperience, sCurrentCompany, sAddress, sSource, sRemark, iCreatedBy)
+                VALUES (?,?,?,?,?,?,?,?,?,?)");
             foreach ($validRows as $vr) {
-                $nextId++;
-                $selNo = date('y') . date('m') . str_pad($nextId, 3, '0', STR_PAD_LEFT);
                 bindDynamic($stmt, [
-                    ['s', $selNo], ['s', $vr['type']], ['s', $vr['candidateName']], ['s', $vr['mobile']], ['s', $vr['post']],
-                    ['i', $vr['companyId']], ['d', $vr['ctc']], ['s', $vr['joiningStatus']], ['s', $vr['source']], ['s', $vr['workedBy']], ['s', $vr['remark']],
-                    ['s', $vr['education']], ['s', $vr['experience']], ['s', $vr['currentCompany']], ['s', $vr['address']], ['s', $vr['joiningDate']], ['i', $currentUserId],
+                    ['s', $vr['candidateName']], ['s', $vr['mobile']], ['s', $vr['type']],
+                    ['s', $vr['education']], ['s', $vr['experience']], ['s', $vr['currentCompany']], ['s', $vr['address']],
+                    ['s', $vr['source']], ['s', $vr['remark']], ['i', $currentUserId],
                 ]);
                 if (!mysqli_stmt_execute($stmt)) {
                     throw new RuntimeException(mysqli_stmt_error($stmt));
@@ -1085,11 +1004,171 @@ if ($action === 'importcandidates') {
     ]);
 }
 
+// =====================================================================
+// PLACEMENTS
+// =====================================================================
+if ($action === 'fngetlistplacement') {
+    $rows = [];
+    $r = mysqli_query($link, "SELECT p.*, c.sCompanyName, cd.sCandidateName, cd.sMobile, cd.sResumePath
+                               FROM tblplacement p
+                               LEFT JOIN tblcompany c ON c.iCompanyId = p.iCompanyId
+                               LEFT JOIN tblcandidate cd ON cd.iCandidateId = p.iCandidateId
+                               WHERE p.dDeletedAt IS NULL
+                               ORDER BY p.iPlacementId DESC");
+    while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
+    sendResponse("success", "ok", $rows);
+}
+
+if ($action === 'fngetlisttrashplacement') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $rows = [];
+    $r = mysqli_query($link, "SELECT p.*, c.sCompanyName, cd.sCandidateName, cd.sMobile, cd.sResumePath
+                               FROM tblplacement p
+                               LEFT JOIN tblcompany c ON c.iCompanyId = p.iCompanyId
+                               LEFT JOIN tblcandidate cd ON cd.iCandidateId = p.iCandidateId
+                               WHERE p.dDeletedAt IS NOT NULL
+                               ORDER BY p.dDeletedAt DESC");
+    while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
+    sendResponse("success", "ok", $rows);
+}
+
+if ($action === 'fngetlistoutstandinginvoices') {
+    $rows = [];
+    $r = mysqli_query($link, "SELECT p.iPlacementId, p.sInvoiceNo, p.dInvoiceDate, cd.sCandidateName, p.dAmount, p.dRecAmount, c.sCompanyName
+                               FROM tblplacement p
+                               LEFT JOIN tblcompany c ON c.iCompanyId = p.iCompanyId
+                               LEFT JOIN tblcandidate cd ON cd.iCandidateId = p.iCandidateId
+                               WHERE p.dDeletedAt IS NULL AND p.dAmount > p.dRecAmount
+                               ORDER BY (p.dInvoiceDate IS NULL) ASC, p.dInvoiceDate ASC, p.iPlacementId DESC");
+    while ($row = mysqli_fetch_assoc($r)) {
+        $pending = (float) $row['dAmount'] - (float) $row['dRecAmount'];
+        $row['dPendingAmount'] = $pending;
+        $row['sPaymentStatus'] = ((float) $row['dRecAmount'] > 0) ? 'Partially Paid' : 'Unpaid';
+        $rows[] = $row;
+    }
+    sendResponse("success", "ok", $rows);
+}
+
+if ($action === 'restoreplacement') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid placement id.");
+    $stmt = mysqli_prepare($link, "UPDATE tblplacement SET dDeletedAt = NULL WHERE iPlacementId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Placement restored successfully.");
+}
+
+if ($action === 'permanentlydeleteplacement') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid placement id.");
+    $stmt = mysqli_prepare($link, "DELETE FROM tblplacement WHERE iPlacementId = ? AND dDeletedAt IS NOT NULL");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Placement permanently deleted.");
+}
+
+if ($action === 'getplacementbyid') {
+    $id = reqInt($inputData, 'id', 0);
+    $stmt = mysqli_prepare($link, "SELECT p.*, cd.sCandidateName, cd.sMobile, cd.sResumePath
+                                    FROM tblplacement p LEFT JOIN tblcandidate cd ON cd.iCandidateId = p.iCandidateId
+                                    WHERE p.iPlacementId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $row = mysqli_fetch_assoc($res);
+    if ($row) sendResponse("success", "ok", $row);
+    sendResponse("error", "Placement not found.");
+}
+
+if ($action === 'addplacement' || $action === 'updateplacement') {
+    $candidateId = reqInt($inputData, 'candidateId', 0);
+    if (!$candidateId) sendResponse("error", "Please select a candidate.");
+
+    $id = ($action === 'updateplacement') ? reqInt($inputData, 'id', 0) : null;
+    if ($action === 'updateplacement' && !$id) sendResponse("error", "Invalid placement id.");
+
+    $stmt = mysqli_prepare($link, "SELECT iCandidateId FROM tblcandidate WHERE iCandidateId = ? AND dDeletedAt IS NULL");
+    mysqli_stmt_bind_param($stmt, "i", $candidateId);
+    mysqli_stmt_execute($stmt);
+    if (mysqli_num_rows(mysqli_stmt_get_result($stmt)) === 0) {
+        sendResponse("error", "Selected candidate was not found.");
+    }
+
+    $companyId = reqInt($inputData, 'companyId', null);
+    $reqId = reqInt($inputData, 'reqId', null);
+    $post = reqStr($inputData, 'post');
+    $salary = reqNum($inputData, 'salary', 0);
+    $ctc = reqNum($inputData, 'ctc', 0);
+    $joiningDate = reqStr($inputData, 'joiningDate');
+    $joiningStatus = reqStr($inputData, 'joiningStatus', 'Offer Accepted');
+    $workedBy = reqStr($inputData, 'workedBy');
+    $remark = reqStr($inputData, 'remark');
+    $invoiceDate = reqStr($inputData, 'invoiceDate');
+    $invoiceNo = reqStr($inputData, 'invoiceNo');
+    $charges = reqNum($inputData, 'charges', 0);
+    $cgst = reqNum($inputData, 'cgst', 0);
+    $sgst = reqNum($inputData, 'sgst', 0);
+    $totalGst = round($cgst + $sgst, 2);
+    $amount = round($charges + $totalGst, 2);
+    $recAmount = reqNum($inputData, 'recAmount', 0);
+    $paymentRecDate = reqStr($inputData, 'paymentRecDate');
+    $paymentMode = reqStr($inputData, 'paymentMode');
+    $tds = reqNum($inputData, 'tds', 0);
+    $ipcInvDate = reqStr($inputData, 'ipcInvDate');
+    $ipcInvNo = reqStr($inputData, 'ipcInvNo');
+    $ipcInvAmt = reqNum($inputData, 'ipcInvAmt', 0);
+    $paymentDate = reqStr($inputData, 'paymentDate');
+    $paymentDetails = reqStr($inputData, 'paymentDetails');
+
+    if ($action === 'addplacement') {
+        $r = mysqli_query($link, "SELECT COALESCE(MAX(iPlacementId),0)+1 n FROM tblplacement");
+        $nextId = (int) mysqli_fetch_assoc($r)['n'];
+        $selNo = date('y') . date('m') . str_pad($nextId, 3, '0', STR_PAD_LEFT);
+
+        $stmt = mysqli_prepare($link, "INSERT INTO tblplacement
+            (sSelectionNo, iCandidateId, iReqId, sPost, iCompanyId, dSalary, dCtc, dJoiningDate, sJoiningStatus,
+             sWorkedBy, sRemark, dInvoiceDate, sInvoiceNo, dCharges, dCgst, dSgst, dTotalGst, dAmount, dRecAmount,
+             dPaymentRecDate, sPaymentMode, dTds, dIpcInvDate, sIpcInvNo, dIpcInvAmt, dPaymentDate, sPaymentDetails, iCreatedBy)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+        bindDynamic($stmt, [
+            ['s', $selNo], ['i', $candidateId], ['i', $reqId], ['s', $post],
+            ['i', $companyId], ['d', $salary], ['d', $ctc], ['s', $joiningDate], ['s', $joiningStatus],
+            ['s', $workedBy], ['s', $remark], ['s', $invoiceDate], ['s', $invoiceNo],
+            ['d', $charges], ['d', $cgst], ['d', $sgst], ['d', $totalGst], ['d', $amount], ['d', $recAmount],
+            ['s', $paymentRecDate], ['s', $paymentMode], ['d', $tds], ['s', $ipcInvDate], ['s', $ipcInvNo],
+            ['d', $ipcInvAmt], ['s', $paymentDate], ['s', $paymentDetails], ['i', $currentUserId],
+        ]);
+        mysqli_stmt_execute($stmt);
+        if (mysqli_stmt_errno($stmt)) sendResponse("error", "Could not save placement. Please check the values entered.");
+        sendResponse("success", "Placement added successfully.", ["selectionNo" => $selNo, "id" => mysqli_insert_id($link)]);
+    } else {
+        $stmt = mysqli_prepare($link, "UPDATE tblplacement SET
+            iCandidateId=?, iReqId=?, sPost=?, iCompanyId=?, dSalary=?, dCtc=?, dJoiningDate=?, sJoiningStatus=?,
+            sWorkedBy=?, sRemark=?, dInvoiceDate=?, sInvoiceNo=?, dCharges=?, dCgst=?, dSgst=?, dTotalGst=?, dAmount=?, dRecAmount=?,
+            dPaymentRecDate=?, sPaymentMode=?, dTds=?, dIpcInvDate=?, sIpcInvNo=?, dIpcInvAmt=?, dPaymentDate=?, sPaymentDetails=?
+            WHERE iPlacementId=?");
+        bindDynamic($stmt, [
+            ['i', $candidateId], ['i', $reqId], ['s', $post], ['i', $companyId],
+            ['d', $salary], ['d', $ctc], ['s', $joiningDate], ['s', $joiningStatus],
+            ['s', $workedBy], ['s', $remark], ['s', $invoiceDate], ['s', $invoiceNo],
+            ['d', $charges], ['d', $cgst], ['d', $sgst], ['d', $totalGst], ['d', $amount], ['d', $recAmount],
+            ['s', $paymentRecDate], ['s', $paymentMode], ['d', $tds], ['s', $ipcInvDate], ['s', $ipcInvNo],
+            ['d', $ipcInvAmt], ['s', $paymentDate], ['s', $paymentDetails], ['i', $id],
+        ]);
+        mysqli_stmt_execute($stmt);
+        if (mysqli_stmt_errno($stmt)) sendResponse("error", "Could not save placement. Please check the values entered.");
+        sendResponse("success", "Placement updated successfully.");
+    }
+}
+
 if ($action === 'deleteplacement') {
     $id = reqInt($inputData, 'id', 0);
     if (!$id) sendResponse("error", "Invalid placement id.");
-    // Soft delete only — the resume file and row are kept until the record
-    // is removed from the trash for good (see permanentlydeleteplacement).
+    // Soft delete only — the row is kept until removed from the trash for
+    // good (see permanentlydeleteplacement). The candidate's resume is a
+    // separate record now and isn't touched by a placement's lifecycle.
     $stmt = mysqli_prepare($link, "UPDATE tblplacement SET dDeletedAt = NOW() WHERE iPlacementId = ?");
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
@@ -1537,8 +1616,10 @@ if ($action === 'calendar_events') {
     }
 
     // ---- Candidate joining dates ----
-    $stmt = mysqli_prepare($link, "SELECT p.iPlacementId, p.sCandidateName, p.sPost, p.sJoiningStatus, p.dJoiningDate, c.sCompanyName
-                                    FROM tblplacement p LEFT JOIN tblcompany c ON c.iCompanyId = p.iCompanyId
+    $stmt = mysqli_prepare($link, "SELECT p.iPlacementId, cd.sCandidateName, p.sPost, p.sJoiningStatus, p.dJoiningDate, c.sCompanyName
+                                    FROM tblplacement p
+                                    LEFT JOIN tblcompany c ON c.iCompanyId = p.iCompanyId
+                                    LEFT JOIN tblcandidate cd ON cd.iCandidateId = p.iCandidateId
                                     WHERE p.dJoiningDate >= ? AND p.dJoiningDate < ?");
     bindDynamic($stmt, [['s', $start], ['s', $end]]);
     mysqli_stmt_execute($stmt);

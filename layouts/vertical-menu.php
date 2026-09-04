@@ -107,9 +107,16 @@ $crmMastersOpen = crmIsActive($crmMastersScripts);
                 </li>
 
                 <li>
+                    <a href="list-candidate.php" class="waves-effect <?php echo crmActive(['list-candidate.php', 'add-candidate.php', 'bulk-upload-candidates.php']); ?>">
+                        <i class="bx bx-user"></i>
+                        <span>Candidates</span>
+                    </a>
+                </li>
+
+                <li>
                     <a href="list-placement.php" class="waves-effect <?php echo crmActive(['list-placement.php', 'add-placement.php']); ?>">
                         <i class="bx bx-user-check"></i>
-                        <span>Candidates &amp; Placements</span>
+                        <span>Placements</span>
                     </a>
                 </li>
 
