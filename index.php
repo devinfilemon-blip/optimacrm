@@ -287,8 +287,8 @@ function badgeForStatus(status) {
     if (!status) status = 'Unknown';
     var s = status.toLowerCase();
     if (s.indexOf('search') !== -1) cls = 'optima-badge-searching';
-    else if (s.indexOf('closed') !== -1 || s === 'joined') cls = 'optima-badge-closed';
-    else if (s.indexOf('hold') !== -1) cls = 'optima-badge-hold';
+    else if (s.indexOf('closed') !== -1 || s === 'joined' || s.indexOf('received') !== -1) cls = 'optima-badge-closed';
+    else if (s.indexOf('hold') !== -1 || s.indexOf('invoice') !== -1) cls = 'optima-badge-hold';
     else if (s.indexOf('refine') !== -1 || s.indexOf('not') !== -1) cls = 'optima-badge-refine';
     return '<span class="optima-badge ' + cls + '">' + $('<div>').text(status).html() + '</span>';
 }

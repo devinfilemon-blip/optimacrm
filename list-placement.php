@@ -16,8 +16,18 @@
                     <div class="col-12">
                         <div class="page-title-box d-sm-flex align-items-center justify-content-between">
                             <h4 class="mb-sm-0 font-size-18" id="pageTitle">Candidates &amp; Placements</h4>
-                            <div class="page-title-right" id="pageActions">
+                            <div class="page-title-right d-flex align-items-center gap-2 flex-wrap" id="pageActions">
+                                <select id="statusFilter" class="form-select form-select-sm" style="width:auto;">
+                                    <option value="">All Statuses</option>
+                                    <option value="Offer Accepted">Offer Accepted</option>
+                                    <option value="Joined">Joined</option>
+                                    <option value="Invoice Sent">Invoice Sent</option>
+                                    <option value="Amount Received">Amount Received</option>
+                                    <option value="Job Left">Job Left</option>
+                                    <option value="Not Joined">Not Joined</option>
+                                </select>
                                 <a href="list-placement.php?trashed=1" class="btn btn-outline-secondary btn-sm"><i class="bx bx-trash"></i> Trash</a>
+                                <a href="bulk-upload-candidates.php" class="btn btn-outline-primary btn-sm"><i class="bx bx-upload"></i> Bulk Upload</a>
                                 <a href="add-placement.php" class="btn btn-primary btn-sm"><i class="bx bx-plus"></i> Add Placement</a>
                             </div>
                         </div>
@@ -31,6 +41,7 @@
                             <tr>
                                 <th>Selection No</th>
                                 <th>Candidate</th>
+                                <th>Mobile</th>
                                 <th>Company</th>
                                 <th>Post</th>
                                 <th>Joining Date</th>
@@ -66,8 +77,9 @@ function badgeForJoining(status) {
     var s = (status || '').toLowerCase();
     if (s === 'amount received') cls = 'optima-badge-closed';
     else if (s === 'job left' || s === 'not joined') cls = 'optima-badge-refine';
-    else if (s === 'pending') cls = 'optima-badge-hold';
-    return '<span class="optima-badge ' + cls + '">' + esc(status || 'Pending') + '</span>';
+    else if (s === 'invoice sent') cls = 'optima-badge-hold';
+    else if (s === 'joined') cls = 'optima-badge-searching';
+    return '<span class="optima-badge ' + cls + '">' + esc(status || 'Offer Accepted') + '</span>';
 }
 
 function pad2(n) { return n < 10 ? '0' + n : '' + n; }
@@ -125,6 +137,10 @@ function fngetlistplacement() {
                         var range = getPeriodRange(period);
                         data = data.filter(function (p) { return p[dateField] && p[dateField] >= range.start && p[dateField] <= range.end; });
                     }
+                    var statusVal = document.getElementById('statusFilter') ? document.getElementById('statusFilter').value : '';
+                    if (statusVal) {
+                        data = data.filter(function (p) { return (p.sJoiningStatus || 'Offer Accepted') === statusVal; });
+                    }
                 }
                 placementRowsById = {};
                 data.forEach(function (p) {
@@ -141,6 +157,7 @@ function fngetlistplacement() {
                     rows += '<tr data-id="' + p.iPlacementId + '">' +
                         '<td>' + esc(p.sSelectionNo) + '</td>' +
                         '<td>' + esc(p.sCandidateName) + '</td>' +
+                        '<td>' + esc(p.sMobile || '-') + '</td>' +
                         '<td>' + esc(p.sCompanyName || '-') + '</td>' +
                         '<td>' + esc(p.sPost) + '</td>' +
                         '<td>' + esc(p.dJoiningDate) + '</td>' +
@@ -161,10 +178,10 @@ function fngetlistplacement() {
                 // A lone colspan "no records" row confuses DataTables' column
                 // auto-detection (it indexes cells off the first tbody row),
                 // so only initialize the table when there's real data to show.
-                $('#datatable tbody').html(rows || '<tr><td colspan="12">' + (CRM_TRASH_MODE ? 'Trash is empty' : 'No placements found') + '</td></tr>');
+                $('#datatable tbody').html(rows || '<tr><td colspan="13">' + (CRM_TRASH_MODE ? 'Trash is empty' : 'No placements found') + '</td></tr>');
                 if (rows) $('#datatable').DataTable({ order: [[0, 'desc']] });
             } else {
-                $('#datatable tbody').html('<tr><td colspan="12">No placements found</td></tr>');
+                $('#datatable tbody').html('<tr><td colspan="13">No placements found</td></tr>');
             }
         }
     });
@@ -234,17 +251,20 @@ if (!CRM_TRASH_MODE) {
         getFullRow: function (id) { return placementRowsById[id]; },
         fields: [
             { cellIndex: 1, key: 'sCandidateName', type: 'text' },
-            { cellIndex: 2, key: 'iCompanyId', type: 'select', options: function (place) { withPlacementCompanyOptions(place); } },
-            { cellIndex: 3, key: 'sPost', type: 'text' },
-            { cellIndex: 4, key: 'dJoiningDate', type: 'date' },
-            { cellIndex: 5, key: 'sJoiningStatus', type: 'select', options: [
-                { value: 'Pending', label: 'Pending' },
+            { cellIndex: 2, key: 'sMobile', type: 'text' },
+            { cellIndex: 3, key: 'iCompanyId', type: 'select', options: function (place) { withPlacementCompanyOptions(place); } },
+            { cellIndex: 4, key: 'sPost', type: 'text' },
+            { cellIndex: 5, key: 'dJoiningDate', type: 'date' },
+            { cellIndex: 6, key: 'sJoiningStatus', type: 'select', options: [
+                { value: 'Offer Accepted', label: 'Offer Accepted' },
+                { value: 'Joined', label: 'Joined' },
+                { value: 'Invoice Sent', label: 'Invoice Sent' },
                 { value: 'Amount Received', label: 'Amount Received' },
                 { value: 'Job Left', label: 'Job Left' },
                 { value: 'Not Joined', label: 'Not Joined' }
             ] },
-            { cellIndex: 7, key: 'dRecAmount', type: 'number' },
-            { cellIndex: 8, key: 'sWorkedBy', type: 'text' }
+            { cellIndex: 8, key: 'dRecAmount', type: 'number' },
+            { cellIndex: 9, key: 'sWorkedBy', type: 'text' }
         ],
         toPayload: function (merged, id) {
             return {
@@ -262,5 +282,8 @@ if (!CRM_TRASH_MODE) {
     };
 }
 
-$(document).ready(function () { fngetlistplacement(); });
+$(document).ready(function () {
+    fngetlistplacement();
+    $('#statusFilter').on('change', fngetlistplacement);
+});
 </script>

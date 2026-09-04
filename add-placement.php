@@ -50,6 +50,7 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                                         <div class="mb-3">
                                             <label class="form-label">Mobile No</label>
                                             <input type="text" class="form-control" id="mobile">
+                                            <div id="mobileWarning" class="text-danger small mt-1"></div>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
@@ -86,6 +87,30 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                                             <input type="text" class="form-control" id="post">
                                         </div>
                                     </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Education</label>
+                                            <select class="form-control" id="education"><option value="">-- Select Education --</option></select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Experience</label>
+                                            <input type="text" class="form-control" id="experience" placeholder="e.g. 2 years">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Current Company</label>
+                                            <input type="text" class="form-control" id="currentCompany">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <div class="mb-3">
+                                            <label class="form-label">Address</label>
+                                            <textarea class="form-control" id="address" rows="1"></textarea>
+                                        </div>
+                                    </div>
                                     <div class="col-md-3">
                                         <div class="mb-3">
                                             <label class="form-label">Annual CTC (₹)</label>
@@ -102,7 +127,9 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                                         <div class="mb-3">
                                             <label class="form-label">Joining Status</label>
                                             <select class="form-control" id="joiningStatus">
-                                                <option value="Pending">Pending</option>
+                                                <option value="Offer Accepted">Offer Accepted</option>
+                                                <option value="Joined">Joined</option>
+                                                <option value="Invoice Sent">Invoice Sent</option>
                                                 <option value="Amount Received">Amount Received</option>
                                                 <option value="Job Left">Job Left</option>
                                                 <option value="Not Joined">Not Joined</option>
@@ -319,6 +346,46 @@ function loadSourceDropdown(selected) {
     });
 }
 
+function loadEducationDropdown(selected) {
+    fetch('api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'fngetlisteducation' })
+    })
+    .then(r => r.json())
+    .then(res => {
+        var sel = document.getElementById('education');
+        sel.innerHTML = '<option value="">-- Select Education --</option>';
+        (res.data || []).forEach(function (e) {
+            var opt = document.createElement('option');
+            opt.value = e.sEducation;
+            opt.textContent = e.sEducation;
+            if (selected && selected === e.sEducation) opt.selected = true;
+            sel.appendChild(opt);
+        });
+        crmRefreshSelect2(sel);
+    });
+}
+
+function checkMobileDuplicate(cb) {
+    var mobile = document.getElementById('mobile').value.trim();
+    var warnEl = document.getElementById('mobileWarning');
+    if (!mobile) { warnEl.textContent = ''; cb(false); return; }
+    fetch('api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'checkcandidatemobile', mobile: mobile, excludeId: editId })
+    })
+    .then(r => r.json())
+    .then(res => {
+        var dup = !!(res.data && res.data.exists);
+        warnEl.textContent = dup ? 'A candidate with this mobile number already exists.' : '';
+        cb(dup);
+    })
+    .catch(function () { cb(false); });
+}
+document.getElementById('mobile').addEventListener('blur', function () { checkMobileDuplicate(function () {}); });
+
 function loadRequirementDropdown(selected) {
     fetch('api.php', {
         method: 'POST',
@@ -362,6 +429,7 @@ function loadPlacement() {
     loadCompanyDropdown(null);
     loadSourceDropdown(null);
     loadRequirementDropdown(null);
+    loadEducationDropdown(null);
 
     if (!editId) { recalcGst(); return; }
     fetch('api.php', {
@@ -376,14 +444,20 @@ function loadPlacement() {
         loadCompanyDropdown(d.iCompanyId);
         loadRequirementDropdown(d.iReqId);
         loadSourceDropdown(d.sSource);
+        loadEducationDropdown(d.sEducation);
 
         document.getElementById('candidateName').value = d.sCandidateName || '';
         document.getElementById('mobile').value = d.sMobile || '';
         document.getElementById('type').value = d.sType || 'NT';
+        crmRefreshSelect2(document.getElementById('type'));
         document.getElementById('post').value = d.sPost || '';
+        document.getElementById('experience').value = d.sExperience || '';
+        document.getElementById('currentCompany').value = d.sCurrentCompany || '';
+        document.getElementById('address').value = d.sAddress || '';
         document.getElementById('ctc').value = d.dCtc || '';
         document.getElementById('joiningDate').value = d.dJoiningDate || '';
-        document.getElementById('joiningStatus').value = d.sJoiningStatus || 'Pending';
+        document.getElementById('joiningStatus').value = d.sJoiningStatus || 'Offer Accepted';
+        crmRefreshSelect2(document.getElementById('joiningStatus'));
         document.getElementById('workedBy').value = d.sWorkedBy || '';
         document.getElementById('remark').value = d.sRemark || '';
         document.getElementById('ref1').value = d.sRef1 || '';
@@ -414,6 +488,13 @@ function savePlacement() {
     var candidateName = document.getElementById('candidateName').value.trim();
     if (!candidateName) { alert('Please enter the candidate name.'); return; }
 
+    checkMobileDuplicate(function (isDuplicate) {
+        if (isDuplicate) { showMessage('A candidate with this mobile number already exists.', false); return; }
+        doSavePlacement(candidateName);
+    });
+}
+
+function doSavePlacement(candidateName) {
     var data = {
         action: editId ? 'updateplacement' : 'addplacement',
         id: editId,
@@ -423,6 +504,10 @@ function savePlacement() {
         companyId: document.getElementById('companyId').value,
         reqId: document.getElementById('reqId').value,
         post: document.getElementById('post').value,
+        education: document.getElementById('education').value,
+        experience: document.getElementById('experience').value,
+        currentCompany: document.getElementById('currentCompany').value,
+        address: document.getElementById('address').value,
         ctc: document.getElementById('ctc').value,
         joiningDate: document.getElementById('joiningDate').value,
         joiningStatus: document.getElementById('joiningStatus').value,

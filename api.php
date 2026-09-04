@@ -1,6 +1,7 @@
 <?php
 session_start();
 include 'layouts/config.php';
+require_once 'xlsx-helper.php';
 date_default_timezone_set('Asia/Kolkata');
 
 header('Content-Type: application/json');
@@ -63,6 +64,20 @@ function bindDynamic($stmt, array $pairs) {
 
 function reqInt($arr, $key, $default = null) {
     return isset($arr[$key]) && $arr[$key] !== '' ? (int) $arr[$key] : $default;
+}
+
+/** Mobile numbers are globally unique across candidates (trashed ones included). */
+function candidateMobileDuplicateExists($link, $mobile, $excludeId = null) {
+    if ($mobile === null || $mobile === '') return false;
+    if ($excludeId) {
+        $stmt = mysqli_prepare($link, "SELECT iPlacementId FROM tblplacement WHERE sMobile = ? AND iPlacementId <> ? LIMIT 1");
+        mysqli_stmt_bind_param($stmt, "si", $mobile, $excludeId);
+    } else {
+        $stmt = mysqli_prepare($link, "SELECT iPlacementId FROM tblplacement WHERE sMobile = ? LIMIT 1");
+        mysqli_stmt_bind_param($stmt, "s", $mobile);
+    }
+    mysqli_stmt_execute($stmt);
+    return mysqli_num_rows(mysqli_stmt_get_result($stmt)) > 0;
 }
 
 // =====================================================================
@@ -714,9 +729,19 @@ if ($action === 'getplacementbyid') {
     sendResponse("error", "Placement not found.");
 }
 
+if ($action === 'checkcandidatemobile') {
+    $mobile = reqStr($inputData, 'mobile');
+    $excludeId = reqInt($inputData, 'excludeId', 0);
+    $exists = $mobile ? candidateMobileDuplicateExists($link, $mobile, $excludeId ?: null) : false;
+    sendResponse("success", "ok", ["exists" => $exists]);
+}
+
 if ($action === 'addplacement' || $action === 'updateplacement') {
     $candidateName = reqStr($inputData, 'candidateName');
     if (!$candidateName) sendResponse("error", "Candidate name is required.");
+
+    $id = ($action === 'updateplacement') ? reqInt($inputData, 'id', 0) : null;
+    if ($action === 'updateplacement' && !$id) sendResponse("error", "Invalid placement id.");
 
     $companyId = reqInt($inputData, 'companyId', null);
     $reqId = reqInt($inputData, 'reqId', null);
@@ -724,10 +749,14 @@ if ($action === 'addplacement' || $action === 'updateplacement') {
     $type = in_array($type, ['T', 'NT'], true) ? $type : 'NT';
     $mobile = reqStr($inputData, 'mobile');
     $post = reqStr($inputData, 'post');
+    $education = reqStr($inputData, 'education');
+    $experience = reqStr($inputData, 'experience');
+    $currentCompany = reqStr($inputData, 'currentCompany');
+    $address = reqStr($inputData, 'address');
     $salary = reqNum($inputData, 'salary', 0);
     $ctc = reqNum($inputData, 'ctc', 0);
     $joiningDate = reqStr($inputData, 'joiningDate');
-    $joiningStatus = reqStr($inputData, 'joiningStatus', 'Pending');
+    $joiningStatus = reqStr($inputData, 'joiningStatus', 'Offer Accepted');
     $workedBy = reqStr($inputData, 'workedBy');
     $source = reqStr($inputData, 'source');
     $remark = reqStr($inputData, 'remark');
@@ -750,18 +779,24 @@ if ($action === 'addplacement' || $action === 'updateplacement') {
     $ref1 = reqStr($inputData, 'ref1');
     $ref2 = reqStr($inputData, 'ref2');
 
+    if ($mobile && candidateMobileDuplicateExists($link, $mobile, $id)) {
+        sendResponse("error", "A candidate with this mobile number already exists.");
+    }
+
     if ($action === 'addplacement') {
         $r = mysqli_query($link, "SELECT COALESCE(MAX(iPlacementId),0)+1 n FROM tblplacement");
         $nextId = (int) mysqli_fetch_assoc($r)['n'];
         $selNo = date('y') . date('m') . str_pad($nextId, 3, '0', STR_PAD_LEFT);
 
         $stmt = mysqli_prepare($link, "INSERT INTO tblplacement
-            (sSelectionNo, iReqId, sType, sCandidateName, sMobile, sPost, iCompanyId, dSalary, dCtc, dJoiningDate, sJoiningStatus,
+            (sSelectionNo, iReqId, sType, sCandidateName, sMobile, sPost, sEducation, sExperience, sCurrentCompany, sAddress,
+             iCompanyId, dSalary, dCtc, dJoiningDate, sJoiningStatus,
              sWorkedBy, sSource, sRemark, dInvoiceDate, sInvoiceNo, dCharges, dCgst, dSgst, dTotalGst, dAmount, dRecAmount,
              dPaymentRecDate, sPaymentMode, dTds, dIpcInvDate, sIpcInvNo, dIpcInvAmt, dPaymentDate, sPaymentDetails, sRef1, sRef2, iCreatedBy)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
         bindDynamic($stmt, [
             ['s', $selNo], ['i', $reqId], ['s', $type], ['s', $candidateName], ['s', $mobile], ['s', $post],
+            ['s', $education], ['s', $experience], ['s', $currentCompany], ['s', $address],
             ['i', $companyId], ['d', $salary], ['d', $ctc], ['s', $joiningDate], ['s', $joiningStatus],
             ['s', $workedBy], ['s', $source], ['s', $remark], ['s', $invoiceDate], ['s', $invoiceNo],
             ['d', $charges], ['d', $cgst], ['d', $sgst], ['d', $totalGst], ['d', $amount], ['d', $recAmount],
@@ -769,18 +804,23 @@ if ($action === 'addplacement' || $action === 'updateplacement') {
             ['d', $ipcInvAmt], ['s', $paymentDate], ['s', $paymentDetails], ['s', $ref1], ['s', $ref2], ['i', $currentUserId],
         ]);
         mysqli_stmt_execute($stmt);
-        if (mysqli_stmt_errno($stmt)) sendResponse("error", "Could not save placement. Please check the values entered.");
+        if (mysqli_stmt_errno($stmt)) {
+            $msg = (mysqli_stmt_errno($stmt) === 1062)
+                ? "A candidate with this mobile number already exists."
+                : "Could not save placement. Please check the values entered.";
+            sendResponse("error", $msg);
+        }
         sendResponse("success", "Placement added successfully.", ["selectionNo" => $selNo, "id" => mysqli_insert_id($link)]);
     } else {
-        $id = reqInt($inputData, 'id', 0);
-        if (!$id) sendResponse("error", "Invalid placement id.");
         $stmt = mysqli_prepare($link, "UPDATE tblplacement SET
-            iReqId=?, sType=?, sCandidateName=?, sMobile=?, sPost=?, iCompanyId=?, dSalary=?, dCtc=?, dJoiningDate=?, sJoiningStatus=?,
+            iReqId=?, sType=?, sCandidateName=?, sMobile=?, sPost=?, sEducation=?, sExperience=?, sCurrentCompany=?, sAddress=?,
+            iCompanyId=?, dSalary=?, dCtc=?, dJoiningDate=?, sJoiningStatus=?,
             sWorkedBy=?, sSource=?, sRemark=?, dInvoiceDate=?, sInvoiceNo=?, dCharges=?, dCgst=?, dSgst=?, dTotalGst=?, dAmount=?, dRecAmount=?,
             dPaymentRecDate=?, sPaymentMode=?, dTds=?, dIpcInvDate=?, sIpcInvNo=?, dIpcInvAmt=?, dPaymentDate=?, sPaymentDetails=?, sRef1=?, sRef2=?
             WHERE iPlacementId=?");
         bindDynamic($stmt, [
-            ['i', $reqId], ['s', $type], ['s', $candidateName], ['s', $mobile], ['s', $post], ['i', $companyId],
+            ['i', $reqId], ['s', $type], ['s', $candidateName], ['s', $mobile], ['s', $post],
+            ['s', $education], ['s', $experience], ['s', $currentCompany], ['s', $address], ['i', $companyId],
             ['d', $salary], ['d', $ctc], ['s', $joiningDate], ['s', $joiningStatus],
             ['s', $workedBy], ['s', $source], ['s', $remark], ['s', $invoiceDate], ['s', $invoiceNo],
             ['d', $charges], ['d', $cgst], ['d', $sgst], ['d', $totalGst], ['d', $amount], ['d', $recAmount],
@@ -788,7 +828,12 @@ if ($action === 'addplacement' || $action === 'updateplacement') {
             ['d', $ipcInvAmt], ['s', $paymentDate], ['s', $paymentDetails], ['s', $ref1], ['s', $ref2], ['i', $id],
         ]);
         mysqli_stmt_execute($stmt);
-        if (mysqli_stmt_errno($stmt)) sendResponse("error", "Could not save placement. Please check the values entered.");
+        if (mysqli_stmt_errno($stmt)) {
+            $msg = (mysqli_stmt_errno($stmt) === 1062)
+                ? "A candidate with this mobile number already exists."
+                : "Could not save placement. Please check the values entered.";
+            sendResponse("error", $msg);
+        }
         sendResponse("success", "Placement updated successfully.");
     }
 }
@@ -849,6 +894,195 @@ if ($action === 'deleteresume') {
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
     sendResponse("success", "Resume removed.");
+}
+
+// =====================================================================
+// BULK CANDIDATE IMPORT (Excel)
+// =====================================================================
+if ($action === 'importcandidates') {
+    if (empty($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+        sendResponse("error", "Please choose an Excel (.xlsx) file to upload.");
+    }
+    $file = $_FILES['file'];
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    if ($ext !== 'xlsx') {
+        sendResponse("error", "Only .xlsx Excel files are supported. Please use the downloadable template.");
+    }
+    if ($file['size'] > 5 * 1024 * 1024) {
+        sendResponse("error", "File must be under 5 MB.");
+    }
+
+    try {
+        $rows = xlsx_read_first_sheet($file['tmp_name']);
+    } catch (Throwable $e) {
+        sendResponse("error", $e->getMessage());
+    }
+    if (count($rows) === 0) {
+        sendResponse("error", "The uploaded file is empty.");
+    }
+
+    $expectedHeaders = [
+        'Candidate Name', 'Mobile Number', 'Post', 'Company Name', 'Type (T/NT)',
+        'Education', 'Experience', 'Current Company', 'Address', 'Annual CTC',
+        'Joining Date (YYYY-MM-DD)', 'Joining Status', 'Source', 'Worked By', 'Remark',
+    ];
+    $headerRow = array_map(function ($h) { return trim((string) $h); }, $rows[0]);
+    $colIndex = [];
+    foreach ($expectedHeaders as $name) {
+        $idx = array_search($name, $headerRow, true);
+        $colIndex[$name] = ($idx === false) ? null : $idx;
+    }
+    if ($colIndex['Candidate Name'] === null || $colIndex['Mobile Number'] === null) {
+        sendResponse("error", "This file doesn't match the candidate template. Please download the template and try again.");
+    }
+
+    $dataRows = array_slice($rows, 1);
+    $maxRows = 2000;
+    if (count($dataRows) > $maxRows) {
+        sendResponse("error", "This file has too many rows. Please split it into batches of $maxRows or fewer.");
+    }
+
+    $validStatuses = ['Offer Accepted', 'Joined', 'Invoice Sent', 'Amount Received', 'Job Left', 'Not Joined'];
+
+    $getCell = function ($row, $key) use ($colIndex) {
+        $idx = $colIndex[$key];
+        return ($idx !== null && isset($row[$idx])) ? trim((string) $row[$idx]) : '';
+    };
+
+    $companyByName = [];
+    $cr = mysqli_query($link, "SELECT iCompanyId, sCompanyName FROM tblcompany WHERE dDeletedAt IS NULL");
+    while ($crow = mysqli_fetch_assoc($cr)) { $companyByName[mb_strtolower(trim($crow['sCompanyName']))] = (int) $crow['iCompanyId']; }
+
+    $existingMobiles = [];
+    $mr = mysqli_query($link, "SELECT sMobile FROM tblplacement WHERE sMobile IS NOT NULL AND sMobile <> ''");
+    while ($mrow = mysqli_fetch_assoc($mr)) { $existingMobiles[$mrow['sMobile']] = true; }
+
+    $seenMobilesInFile = [];
+    $validRows = [];
+    $rowErrors = [];
+    $emptyRowCount = 0;
+    $duplicateCount = 0;
+    $failedCount = 0;
+
+    foreach ($dataRows as $i => $row) {
+        $excelRowNumber = $i + 2; // header occupies row 1
+        $allBlank = true;
+        foreach ($row as $cell) { if (trim((string) $cell) !== '') { $allBlank = false; break; } }
+        if ($allBlank) {
+            $emptyRowCount++;
+            $rowErrors[] = ['row' => $excelRowNumber, 'errors' => ['Empty row — skipped.']];
+            continue;
+        }
+
+        $errors = [];
+        $name = $getCell($row, 'Candidate Name');
+        if ($name === '') $errors[] = 'Candidate Name is required.';
+
+        $mobileRaw = $getCell($row, 'Mobile Number');
+        $mobile = $mobileRaw !== '' ? $mobileRaw : null;
+        $isDuplicate = false;
+        if ($mobile !== null) {
+            if (!preg_match('/^[0-9+\-\s()]{6,20}$/', $mobile)) {
+                $errors[] = 'Mobile Number looks invalid.';
+            } elseif (isset($existingMobiles[$mobile])) {
+                $errors[] = 'A candidate with this mobile number already exists.';
+                $isDuplicate = true;
+            } elseif (isset($seenMobilesInFile[$mobile])) {
+                $errors[] = 'Duplicate mobile number — also appears in row ' . $seenMobilesInFile[$mobile] . ' of this file.';
+                $isDuplicate = true;
+            }
+        }
+
+        $type = strtoupper($getCell($row, 'Type (T/NT)'));
+        if ($type === '') $type = 'NT';
+        if (!in_array($type, ['T', 'NT'], true)) { $errors[] = "Type must be T or NT (got '$type')."; }
+
+        $companyName = $getCell($row, 'Company Name');
+        $companyId = null;
+        if ($companyName !== '') {
+            $key = mb_strtolower($companyName);
+            if (isset($companyByName[$key])) { $companyId = $companyByName[$key]; }
+            else { $errors[] = "Company '$companyName' was not found."; }
+        }
+
+        $ctcRaw = $getCell($row, 'Annual CTC');
+        $ctc = 0;
+        if ($ctcRaw !== '') {
+            if (!is_numeric($ctcRaw)) { $errors[] = 'Annual CTC must be a number.'; }
+            else { $ctc = (float) $ctcRaw; }
+        }
+
+        $joiningDateRaw = $getCell($row, 'Joining Date (YYYY-MM-DD)');
+        $joiningDate = null;
+        if ($joiningDateRaw !== '') {
+            $joiningDate = xlsx_parse_maybe_date($joiningDateRaw);
+            if ($joiningDate === null) { $errors[] = "Joining Date '$joiningDateRaw' is not a valid date."; }
+        }
+
+        $joiningStatus = $getCell($row, 'Joining Status');
+        if ($joiningStatus === '') { $joiningStatus = 'Offer Accepted'; }
+        elseif (!in_array($joiningStatus, $validStatuses, true)) {
+            $errors[] = "Joining Status '$joiningStatus' is not valid.";
+        }
+
+        if (!empty($errors)) {
+            $failedCount++;
+            if ($isDuplicate) $duplicateCount++;
+            $rowErrors[] = ['row' => $excelRowNumber, 'errors' => $errors];
+            continue;
+        }
+
+        if ($mobile !== null) { $seenMobilesInFile[$mobile] = $excelRowNumber; }
+
+        $validRows[] = [
+            'candidateName' => $name, 'mobile' => $mobile, 'post' => $getCell($row, 'Post'),
+            'companyId' => $companyId, 'type' => $type,
+            'education' => $getCell($row, 'Education'), 'experience' => $getCell($row, 'Experience'),
+            'currentCompany' => $getCell($row, 'Current Company'), 'address' => $getCell($row, 'Address'),
+            'ctc' => $ctc, 'joiningDate' => $joiningDate, 'joiningStatus' => $joiningStatus,
+            'source' => $getCell($row, 'Source'), 'workedBy' => $getCell($row, 'Worked By'), 'remark' => $getCell($row, 'Remark'),
+        ];
+    }
+
+    $successCount = 0;
+    if (!empty($validRows)) {
+        mysqli_begin_transaction($link);
+        try {
+            $r = mysqli_query($link, "SELECT COALESCE(MAX(iPlacementId),0) n FROM tblplacement");
+            $nextId = (int) mysqli_fetch_assoc($r)['n'];
+
+            $stmt = mysqli_prepare($link, "INSERT INTO tblplacement
+                (sSelectionNo, sType, sCandidateName, sMobile, sPost, iCompanyId, dCtc, sJoiningStatus, sSource, sWorkedBy, sRemark,
+                 sEducation, sExperience, sCurrentCompany, sAddress, dJoiningDate, iCreatedBy)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+            foreach ($validRows as $vr) {
+                $nextId++;
+                $selNo = date('y') . date('m') . str_pad($nextId, 3, '0', STR_PAD_LEFT);
+                bindDynamic($stmt, [
+                    ['s', $selNo], ['s', $vr['type']], ['s', $vr['candidateName']], ['s', $vr['mobile']], ['s', $vr['post']],
+                    ['i', $vr['companyId']], ['d', $vr['ctc']], ['s', $vr['joiningStatus']], ['s', $vr['source']], ['s', $vr['workedBy']], ['s', $vr['remark']],
+                    ['s', $vr['education']], ['s', $vr['experience']], ['s', $vr['currentCompany']], ['s', $vr['address']], ['s', $vr['joiningDate']], ['i', $currentUserId],
+                ]);
+                if (!mysqli_stmt_execute($stmt)) {
+                    throw new RuntimeException(mysqli_stmt_error($stmt));
+                }
+                $successCount++;
+            }
+            mysqli_commit($link);
+        } catch (Throwable $e) {
+            mysqli_rollback($link);
+            sendResponse("error", "Import failed — no candidates were saved. Please try again. (" . $e->getMessage() . ")");
+        }
+    }
+
+    sendResponse("success", "Import complete.", [
+        "totalRows" => count($dataRows),
+        "successCount" => $successCount,
+        "failedCount" => $failedCount,
+        "duplicateCount" => $duplicateCount,
+        "emptyRowCount" => $emptyRowCount,
+        "rowErrors" => $rowErrors,
+    ]);
 }
 
 if ($action === 'deleteplacement') {
@@ -1319,7 +1553,7 @@ if ($action === 'calendar_events') {
             "color" => '#0891b2',
             "extendedProps" => [
                 "type" => "joining",
-                "description" => $row['sPost'] . ' — Status: ' . ($row['sJoiningStatus'] ?: 'Pending'),
+                "description" => $row['sPost'] . ' — Status: ' . ($row['sJoiningStatus'] ?: 'Offer Accepted'),
                 "recordId" => (int) $row['iPlacementId'],
             ],
         ];
