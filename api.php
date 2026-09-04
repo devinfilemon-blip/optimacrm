@@ -496,6 +496,97 @@ if ($action === 'getcompanybyid') {
     sendResponse("error", "Company not found.");
 }
 
+if ($action === 'getcompanydetails') {
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid company id.");
+
+    $stmt = mysqli_prepare($link, "SELECT * FROM tblcompany WHERE iCompanyId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $company = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    if (!$company) sendResponse("error", "Company not found.");
+
+    $stmt = mysqli_prepare($link, "SELECT iReqId, sReqNo, sPost, sType, iNoOfVacancy, sLocation, sEducation, sExperience,
+                                           sSalary, dOpenDate, dFollowupDate, sStatus, sRecruiter, sRemark
+                                    FROM tblrequirement WHERE iCompanyId = ? AND dDeletedAt IS NULL
+                                    ORDER BY iReqId DESC");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $requirements = [];
+    $res = mysqli_stmt_get_result($stmt);
+    while ($row = mysqli_fetch_assoc($res)) { $requirements[] = $row; }
+
+    $stmt = mysqli_prepare($link, "SELECT p.iPlacementId, cd.iCandidateId, cd.sCandidateName, p.sPost, p.dJoiningDate,
+                                           p.sJoiningStatus, p.dAmount, p.dRecAmount, p.dCtc
+                                    FROM tblplacement p LEFT JOIN tblcandidate cd ON cd.iCandidateId = p.iCandidateId
+                                    WHERE p.iCompanyId = ? AND p.dDeletedAt IS NULL
+                                    ORDER BY p.iPlacementId DESC");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $placements = [];
+    $res = mysqli_stmt_get_result($stmt);
+    while ($row = mysqli_fetch_assoc($res)) { $placements[] = $row; }
+
+    // ---- Aggregate stats + chart data server-side, so the page is one round trip ----
+    $totalVacancies = 0;
+    $openRequirements = 0;
+    $closedRequirements = 0;
+    $statusCounts = [];
+    $postCounts = [];
+    $locationCounts = [];
+    foreach ($requirements as $r) {
+        $totalVacancies += (int) $r['iNoOfVacancy'];
+        if (in_array($r['sStatus'], ['Closed by Co.', 'Not Joining'], true)) $closedRequirements++;
+        else $openRequirements++;
+        $statusCounts[$r['sStatus']] = ($statusCounts[$r['sStatus']] ?? 0) + 1;
+        if ($r['sPost']) $postCounts[$r['sPost']] = ($postCounts[$r['sPost']] ?? 0) + 1;
+        if ($r['sLocation']) $locationCounts[$r['sLocation']] = ($locationCounts[$r['sLocation']] ?? 0) + 1;
+    }
+
+    $totalRevenue = 0;
+    $totalInvoiced = 0;
+    $monthlyByYm = [];
+    foreach ($placements as $p) {
+        $totalRevenue += (float) $p['dRecAmount'];
+        $totalInvoiced += (float) $p['dAmount'];
+        if ($p['dJoiningDate']) {
+            $ym = substr($p['dJoiningDate'], 0, 7);
+            if (!isset($monthlyByYm[$ym])) $monthlyByYm[$ym] = ['ym' => $ym, 'placements' => 0, 'revenue' => 0];
+            $monthlyByYm[$ym]['placements']++;
+            $monthlyByYm[$ym]['revenue'] += (float) $p['dRecAmount'];
+        }
+    }
+    ksort($monthlyByYm);
+
+    $toBreakdown = function ($counts, $limit = 8) {
+        arsort($counts);
+        $counts = array_slice($counts, 0, $limit, true);
+        $out = [];
+        foreach ($counts as $label => $count) { $out[] = ['label' => $label, 'count' => $count]; }
+        return $out;
+    };
+
+    $totalPlacements = count($placements);
+    $company['stats'] = [
+        'totalRequirements'  => count($requirements),
+        'openRequirements'   => $openRequirements,
+        'closedRequirements' => $closedRequirements,
+        'totalVacancies'     => $totalVacancies,
+        'totalPlacements'    => $totalPlacements,
+        'totalRevenue'       => $totalRevenue,
+        'totalInvoiced'      => $totalInvoiced,
+        'fillRate'           => $totalVacancies > 0 ? round(($totalPlacements / $totalVacancies) * 100) : 0,
+        'statusBreakdown'    => $toBreakdown($statusCounts),
+        'postBreakdown'      => $toBreakdown($postCounts),
+        'locationBreakdown'  => $toBreakdown($locationCounts),
+        'monthlyTrend'       => array_values($monthlyByYm),
+    ];
+    $company['requirements'] = $requirements;
+    $company['placements'] = $placements;
+
+    sendResponse("success", "ok", $company);
+}
+
 if ($action === 'addcompany' || $action === 'updatecompany') {
     $name = reqStr($inputData, 'companyName');
     if (!$name) sendResponse("error", "Company name is required.");

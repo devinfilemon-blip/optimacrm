@@ -82,12 +82,16 @@ function fngetlistcompany() {
                             { label: 'Delete Forever', icon: 'bx-trash', danger: true, onclick: 'permanentlydeletecompany(' + c.iCompanyId + ')' }
                           ])
                         : crmActionMenu([
+                            { label: 'View Details', icon: 'bx-detail', href: 'company-details.php?id=' + c.iCompanyId },
                             { label: 'Edit', icon: 'bx-edit-alt', href: 'add-company.php?id=' + c.iCompanyId },
                             { label: 'Delete', icon: 'bx-trash', danger: true, onclick: 'deletecompany(' + c.iCompanyId + ')' }
                           ]);
+                    var nameCell = CRM_TRASH_MODE
+                        ? $('<div>').text(c.sCompanyName).html()
+                        : '<a href="company-details.php?id=' + c.iCompanyId + '">' + $('<div>').text(c.sCompanyName).html() + '</a>';
                     rows += '<tr data-id="' + c.iCompanyId + '">' +
                         '<td>' + (i + 1) + '</td>' +
-                        '<td>' + $('<div>').text(c.sCompanyName).html() + '</td>' +
+                        '<td>' + nameCell + '</td>' +
                         '<td>' + $('<div>').text(c.sContactPerson || '-').html() + '</td>' +
                         '<td>' + $('<div>').text(c.sPhone || '-').html() + '</td>' +
                         '<td>' + $('<div>').text(c.sLocation || '-').html() + '</td>' +
