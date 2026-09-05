@@ -121,6 +121,15 @@ document.addEventListener('DOMContentLoaded', function () {
     else document.addEventListener('DOMContentLoaded', initTheme);
 })();
 
+/* Requirement numbers are stored as "REQ-0046" (the "REQ-" prefix keeps the
+   column readable in phpMyAdmin and guards against ever colliding with some
+   other numeric id), but the UI now only ever shows the numeric part. This
+   is display-only — never touches what's stored or submitted. */
+function crmReqNoDisplay(reqNo) {
+    if (reqNo === null || reqNo === undefined || reqNo === '') return '';
+    return String(reqNo).replace(/^REQ-?/i, '');
+}
+
 /* Builds a single "⋮" actions cell for a list row instead of separate
    Edit/Delete buttons. items: [{ label, icon (bx-* name), href, target,
    onclick (raw JS string, used when href is omitted), danger (bool) }] */

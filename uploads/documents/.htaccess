@@ -1,0 +1,5 @@
+# Uploaded resumes are documents only — never let this folder execute code.
+<FilesMatch "\.(php|php\d|phtml|pl|py|cgi|sh)$">
+    Require all denied
+</FilesMatch>
+php_flag engine off

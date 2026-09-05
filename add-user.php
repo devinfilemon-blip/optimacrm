@@ -97,6 +97,37 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                         </div>
                     </div>
                 </div>
+
+                <div class="row" id="documentsRow" style="display:none;">
+                    <div class="col-xl-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="mb-1">Documents</h5>
+                                <p class="text-muted small mb-3">PDF, DOC, DOCX, JPG or PNG — up to 5 MB each. You can select multiple files at once.</p>
+
+                                <div class="mb-3">
+                                    <input type="file" class="form-control" id="documentFiles" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple>
+                                </div>
+                                <div id="uploadProgress" class="text-muted small mb-3" style="display:none;"></div>
+
+                                <div id="documentsList">
+                                    <p class="text-muted small mb-0">No documents uploaded yet.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row" id="documentsNewNote" style="display:none;">
+                    <div class="col-xl-12">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="mb-1">Documents</h5>
+                                <p class="text-muted small mb-0">Save this <?php echo $crmIsAdminPage ? 'user' : 'recruiter'; ?> first — then you'll be able to upload documents here.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         <?php include 'layouts/footer.php'; ?>
@@ -209,6 +240,114 @@ function saveUser() {
             setTimeout(function () { window.location.href = 'list-user.php'; }, 500);
         }
     });
+}
+
+function esc(s) { return $('<div>').text(s == null ? '' : s).html(); }
+
+function fmtFileSize(bytes) {
+    bytes = parseInt(bytes, 10) || 0;
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function iconForFileType(ext) {
+    ext = (ext || '').toLowerCase();
+    if (ext === 'pdf') return 'bx-file-blank';
+    if (ext === 'doc' || ext === 'docx') return 'bx-file-doc';
+    if (ext === 'jpg' || ext === 'jpeg' || ext === 'png') return 'bx-image';
+    return 'bx-file';
+}
+
+function loadDocuments() {
+    if (!editId) return;
+    fetch('api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'fnlistuserdocuments', userId: editId })
+    })
+    .then(r => r.json())
+    .then(res => {
+        var wrap = document.getElementById('documentsList');
+        var docs = (res.status === 'success') ? (res.data || []) : [];
+        if (!docs.length) {
+            wrap.innerHTML = '<p class="text-muted small mb-0">No documents uploaded yet.</p>';
+            return;
+        }
+        wrap.innerHTML = '<ul class="list-group">' + docs.map(function (d) {
+            return '<li class="list-group-item d-flex align-items-center justify-content-between flex-wrap gap-2">' +
+                '<span><i class="bx ' + iconForFileType(d.sFileType) + ' me-2"></i>' + esc(d.sFileName) +
+                '<span class="text-muted small ms-2">' + fmtFileSize(d.iFileSize) + ' &middot; ' + esc((d.dUploadedAt || '').substring(0, 10)) + '</span></span>' +
+                '<span>' +
+                '<a href="download-user-document.php?id=' + d.iDocId + '" target="_blank" class="btn btn-outline-primary btn-sm me-1"><i class="bx bx-download"></i> Download</a>' +
+                '<a href="javascript:void(0);" onclick="removeDocument(' + d.iDocId + ');" class="btn btn-outline-danger btn-sm"><i class="bx bx-trash"></i> Remove</a>' +
+                '</span></li>';
+        }).join('') + '</ul>';
+    });
+}
+
+function uploadOneDocument(file) {
+    var fd = new FormData();
+    fd.append('action', 'uploaduserdocument');
+    fd.append('userId', editId);
+    fd.append('document', file);
+    return fetch('api.php', { method: 'POST', body: fd }).then(r => r.json());
+}
+
+function uploadSelectedDocuments() {
+    var input = document.getElementById('documentFiles');
+    var files = Array.prototype.slice.call(input.files || []);
+    if (!files.length) return;
+
+    var progress = document.getElementById('uploadProgress');
+    progress.style.display = '';
+    var done = 0;
+    var errors = [];
+
+    function next() {
+        if (done >= files.length) {
+            progress.style.display = 'none';
+            input.value = '';
+            loadDocuments();
+            if (errors.length) { showMessage(errors.join(' '), false); }
+            return;
+        }
+        var file = files[done];
+        progress.textContent = 'Uploading ' + (done + 1) + ' of ' + files.length + ' — ' + file.name + '…';
+        uploadOneDocument(file).then(function (res) {
+            if (res.status !== 'success') errors.push(file.name + ': ' + res.message);
+            done++;
+            next();
+        }).catch(function () {
+            errors.push(file.name + ': upload failed.');
+            done++;
+            next();
+        });
+    }
+    next();
+}
+
+function removeDocument(docId) {
+    if (!confirm('Remove this document? This cannot be undone.')) return;
+    fetch('api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deleteuserdocument', id: docId })
+    })
+    .then(r => r.json())
+    .then(res => {
+        showMessage(res.message, res.status === 'success');
+        loadDocuments();
+    });
+}
+
+document.getElementById('documentFiles').addEventListener('change', uploadSelectedDocuments);
+
+if (editId) {
+    document.getElementById('documentsRow').style.display = '';
+    loadDocuments();
+} else {
+    document.getElementById('documentsNewNote').style.display = '';
 }
 
 loadUser();

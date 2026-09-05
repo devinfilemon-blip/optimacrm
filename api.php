@@ -66,6 +66,11 @@ function reqInt($arr, $key, $default = null) {
     return isset($arr[$key]) && $arr[$key] !== '' ? (int) $arr[$key] : $default;
 }
 
+/** Display-only: "REQ-0046" -> "0046". The stored sReqNo keeps its prefix. */
+function reqNoDisplay($reqNo) {
+    return $reqNo ? preg_replace('/^REQ-?/i', '', $reqNo) : $reqNo;
+}
+
 /** Mobile numbers are globally unique across candidates (trashed ones included). */
 function candidateMobileDuplicateExists($link, $mobile, $excludeId = null) {
     if ($mobile === null || $mobile === '') return false;
@@ -244,15 +249,28 @@ if ($action === 'reportsData') {
     }
     $out['byCompany'] = topNWithOther($byCompany, 'sCompanyName', ['placements', 'received']);
 
+    // Base dataset is the recruiter roster itself (LEFT JOIN placements), not
+    // the placements table — otherwise a recruiter with zero placements this
+    // period would simply never appear in the report.
     $byRecruiter = [];
-    $r = mysqli_query($link, "SELECT sWorkedBy, COUNT(*) placements FROM tblplacement
-                               WHERE sWorkedBy IS NOT NULL AND sWorkedBy <> '' AND dJoiningDate BETWEEN '$windowStart' AND '$windowEnd'
-                               GROUP BY sWorkedBy ORDER BY placements DESC");
-    while ($row = mysqli_fetch_assoc($r)) {
+    $stmt = mysqli_prepare($link, "SELECT u.sName AS sWorkedBy, COUNT(p.iPlacementId) placements
+                                    FROM tbluser u
+                                    LEFT JOIN tblplacement p
+                                        ON p.sWorkedBy = u.sName AND p.dDeletedAt IS NULL
+                                        AND p.dJoiningDate BETWEEN ? AND ?
+                                    WHERE u.sRole = 'Recruiter' AND u.dDeletedAt IS NULL
+                                    GROUP BY u.iUserid, u.sName
+                                    ORDER BY placements DESC, u.sName ASC");
+    mysqli_stmt_bind_param($stmt, "ss", $windowStart, $windowEnd);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    while ($row = mysqli_fetch_assoc($res)) {
         $row['placements'] = (int) $row['placements'];
         $byRecruiter[] = $row;
     }
-    $out['byRecruiter'] = topNWithOther($byRecruiter, 'sWorkedBy', ['placements']);
+    // Unlike the other ranked charts, this one must never fold recruiters into
+    // an "Other" bucket — a 0-placement recruiter has to appear by name.
+    $out['byRecruiter'] = $byRecruiter;
 
     $funnel = [];
     $r = mysqli_query($link, "SELECT sStatus, COUNT(*) c FROM tblrequirement WHERE dOpenDate BETWEEN '$windowStart' AND '$windowEnd' GROUP BY sStatus ORDER BY c DESC");
@@ -1343,6 +1361,242 @@ if ($action === 'getuserbyid') {
     sendResponse("success", "ok", $row);
 }
 
+// Recruiters/leads/candidates aren't linked to a user by a real foreign key —
+// sRecruiter (on requirements) and sWorkedBy (on placements) are free-text
+// name fields, same as the existing "Placements by Recruiter" report already
+// relies on. tblcandidate.iCreatedBy is the one genuine id-based link.
+if ($action === 'getuserdetails') {
+    if (!$isAdmin && !$isTeamLeader) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid user id.");
+
+    $stmt = mysqli_prepare($link, "SELECT u.iUserid, u.sName, u.sEmail, u.sPhone, u.sRole, u.iManagerId, u.sIs_active, u.sCreatedTimeStamp,
+                                           m.sName AS sManagerName
+                                    FROM tbluser u LEFT JOIN tbluser m ON m.iUserid = u.iManagerId
+                                    WHERE u.iUserid = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $user = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    if (!$user) sendResponse("error", "User not found.");
+
+    $isSelf = ((int) $id === $currentUserId);
+    $isOwnRecruiter = ((int) $user['iManagerId'] === $currentUserId);
+    if (!$isAdmin && !$isSelf && !$isOwnRecruiter) sendResponse("error", "Not authorized.");
+
+    $name = $user['sName'];
+    $monthStart = date('Y-m-01');
+    $monthEnd = date('Y-m-t');
+
+    $stmt = mysqli_prepare($link, "SELECT
+        (SELECT COUNT(*) FROM tblrequirement WHERE sRecruiter = ? AND dDeletedAt IS NULL) totalLeads,
+        (SELECT COUNT(*) FROM tblrequirement WHERE sRecruiter = ? AND dDeletedAt IS NULL AND dOpenDate BETWEEN ? AND ?) monthLeads,
+        (SELECT COUNT(*) FROM tblcandidate WHERE iCreatedBy = ? AND dDeletedAt IS NULL) totalCandidates,
+        (SELECT COUNT(*) FROM tblcandidate WHERE iCreatedBy = ? AND dDeletedAt IS NULL AND DATE(dCreatedAt) BETWEEN ? AND ?) monthCandidates,
+        (SELECT COUNT(*) FROM tblplacement WHERE sWorkedBy = ? AND dDeletedAt IS NULL) totalPlacements,
+        (SELECT COUNT(*) FROM tblplacement WHERE sWorkedBy = ? AND dDeletedAt IS NULL AND dJoiningDate BETWEEN ? AND ?) monthPlacements,
+        (SELECT COALESCE(SUM(dRecAmount),0) FROM tblplacement WHERE sWorkedBy = ? AND dDeletedAt IS NULL) totalRevenue
+    ");
+    bindDynamic($stmt, [
+        ['s', $name], ['s', $name], ['s', $monthStart], ['s', $monthEnd],
+        ['i', $id], ['i', $id], ['s', $monthStart], ['s', $monthEnd],
+        ['s', $name], ['s', $name], ['s', $monthStart], ['s', $monthEnd],
+        ['s', $name],
+    ]);
+    mysqli_stmt_execute($stmt);
+    $counts = mysqli_stmt_get_result($stmt)->fetch_assoc();
+
+    // ---- 6-month trend (leads / candidates / placements per month) ----
+    $trendStart = date('Y-m-01', strtotime('-5 months'));
+    $monthly = [];
+    for ($i = 0; $i < 6; $i++) {
+        $ym = date('Y-m', strtotime("$trendStart +$i months"));
+        $monthly[$ym] = ['ym' => $ym, 'leads' => 0, 'candidates' => 0, 'placements' => 0];
+    }
+    $stmt = mysqli_prepare($link, "SELECT DATE_FORMAT(dOpenDate, '%Y-%m') ym, COUNT(*) c FROM tblrequirement WHERE sRecruiter = ? AND dDeletedAt IS NULL AND dOpenDate >= ? GROUP BY ym");
+    mysqli_stmt_bind_param($stmt, "ss", $name, $trendStart);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    while ($row = mysqli_fetch_assoc($res)) { if (isset($monthly[$row['ym']])) $monthly[$row['ym']]['leads'] = (int) $row['c']; }
+
+    $stmt = mysqli_prepare($link, "SELECT DATE_FORMAT(dCreatedAt, '%Y-%m') ym, COUNT(*) c FROM tblcandidate WHERE iCreatedBy = ? AND dDeletedAt IS NULL AND dCreatedAt >= ? GROUP BY ym");
+    mysqli_stmt_bind_param($stmt, "is", $id, $trendStart);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    while ($row = mysqli_fetch_assoc($res)) { if (isset($monthly[$row['ym']])) $monthly[$row['ym']]['candidates'] = (int) $row['c']; }
+
+    $stmt = mysqli_prepare($link, "SELECT DATE_FORMAT(dJoiningDate, '%Y-%m') ym, COUNT(*) c FROM tblplacement WHERE sWorkedBy = ? AND dDeletedAt IS NULL AND dJoiningDate >= ? GROUP BY ym");
+    mysqli_stmt_bind_param($stmt, "ss", $name, $trendStart);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    while ($row = mysqli_fetch_assoc($res)) { if (isset($monthly[$row['ym']])) $monthly[$row['ym']]['placements'] = (int) $row['c']; }
+
+    $user['stats'] = [
+        'totalLeads' => (int) $counts['totalLeads'], 'monthLeads' => (int) $counts['monthLeads'],
+        'totalCandidates' => (int) $counts['totalCandidates'], 'monthCandidates' => (int) $counts['monthCandidates'],
+        'totalPlacements' => (int) $counts['totalPlacements'], 'monthPlacements' => (int) $counts['monthPlacements'],
+        'totalRevenue' => (float) $counts['totalRevenue'],
+        'monthlyTrend' => array_values($monthly),
+    ];
+
+    // ---- Team members (direct reports — meaningful when viewing a Team Leader) ----
+    $team = [];
+    $stmt = mysqli_prepare($link, "SELECT iUserid, sName, sRole, sIs_active FROM tbluser WHERE iManagerId = ? AND dDeletedAt IS NULL ORDER BY sName ASC");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $members = [];
+    while ($row = mysqli_fetch_assoc($res)) { $members[] = $row; }
+
+    if (!empty($members)) {
+        $memberNames = array_column($members, 'sName');
+        $memberIds = array_map('intval', array_column($members, 'iUserid'));
+
+        $leadsByName = [];
+        $namePairs = array_map(function ($n) { return ['s', $n]; }, $memberNames);
+        $namePlaceholders = implode(',', array_fill(0, count($memberNames), '?'));
+        $stmt = mysqli_prepare($link, "SELECT sRecruiter, COUNT(*) c FROM tblrequirement WHERE sRecruiter IN ($namePlaceholders) AND dDeletedAt IS NULL GROUP BY sRecruiter");
+        bindDynamic($stmt, $namePairs);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+        while ($row = mysqli_fetch_assoc($res)) { $leadsByName[$row['sRecruiter']] = (int) $row['c']; }
+
+        $candidatesById = [];
+        $idPairs = array_map(function ($i) { return ['i', $i]; }, $memberIds);
+        $idPlaceholders = implode(',', array_fill(0, count($memberIds), '?'));
+        $stmt = mysqli_prepare($link, "SELECT iCreatedBy, COUNT(*) c FROM tblcandidate WHERE iCreatedBy IN ($idPlaceholders) AND dDeletedAt IS NULL GROUP BY iCreatedBy");
+        bindDynamic($stmt, $idPairs);
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+        while ($row = mysqli_fetch_assoc($res)) { $candidatesById[(int) $row['iCreatedBy']] = (int) $row['c']; }
+
+        $monthLeadsByName = [];
+        $stmt = mysqli_prepare($link, "SELECT sRecruiter, COUNT(*) c FROM tblrequirement WHERE sRecruiter IN ($namePlaceholders) AND dDeletedAt IS NULL AND dOpenDate BETWEEN ? AND ? GROUP BY sRecruiter");
+        bindDynamic($stmt, array_merge($namePairs, [['s', $monthStart], ['s', $monthEnd]]));
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+        while ($row = mysqli_fetch_assoc($res)) { $monthLeadsByName[$row['sRecruiter']] = (int) $row['c']; }
+
+        $monthCandidatesById = [];
+        $stmt = mysqli_prepare($link, "SELECT iCreatedBy, COUNT(*) c FROM tblcandidate WHERE iCreatedBy IN ($idPlaceholders) AND dDeletedAt IS NULL AND DATE(dCreatedAt) BETWEEN ? AND ? GROUP BY iCreatedBy");
+        bindDynamic($stmt, array_merge($idPairs, [['s', $monthStart], ['s', $monthEnd]]));
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+        while ($row = mysqli_fetch_assoc($res)) { $monthCandidatesById[(int) $row['iCreatedBy']] = (int) $row['c']; }
+
+        $monthPlacementsByName = [];
+        $stmt = mysqli_prepare($link, "SELECT sWorkedBy, COUNT(*) c FROM tblplacement WHERE sWorkedBy IN ($namePlaceholders) AND dDeletedAt IS NULL AND dJoiningDate BETWEEN ? AND ? GROUP BY sWorkedBy");
+        bindDynamic($stmt, array_merge($namePairs, [['s', $monthStart], ['s', $monthEnd]]));
+        mysqli_stmt_execute($stmt);
+        $res = mysqli_stmt_get_result($stmt);
+        while ($row = mysqli_fetch_assoc($res)) { $monthPlacementsByName[$row['sWorkedBy']] = (int) $row['c']; }
+
+        foreach ($members as $m) {
+            $mId = (int) $m['iUserid'];
+            $mName = $m['sName'];
+            $team[] = [
+                'iUserid' => $mId,
+                'sName' => $mName,
+                'sRole' => $m['sRole'],
+                'sIs_active' => $m['sIs_active'],
+                'totalLeads' => $leadsByName[$mName] ?? 0,
+                'totalCandidates' => $candidatesById[$mId] ?? 0,
+                'monthActivity' => ($monthLeadsByName[$mName] ?? 0) + ($monthCandidatesById[$mId] ?? 0) + ($monthPlacementsByName[$mName] ?? 0),
+            ];
+        }
+    }
+    $user['team'] = $team;
+
+    sendResponse("success", "ok", $user);
+}
+
+/** Same visibility rule as getuserdetails: Admin, the user themself, or the
+ *  Team Leader that specific recruiter reports to. */
+function canManageUserDocs($link, $isAdmin, $currentUserId, $targetUserId) {
+    if ($isAdmin) return true;
+    if ((int) $targetUserId === (int) $currentUserId) return true;
+    $stmt = mysqli_prepare($link, "SELECT iManagerId FROM tbluser WHERE iUserid = ?");
+    mysqli_stmt_bind_param($stmt, "i", $targetUserId);
+    mysqli_stmt_execute($stmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    return $row && (int) $row['iManagerId'] === (int) $currentUserId;
+}
+
+if ($action === 'fnlistuserdocuments') {
+    if (!$isAdmin && !$isTeamLeader) sendResponse("error", "Not authorized.");
+    $userId = reqInt($inputData, 'userId', 0);
+    if (!$userId) sendResponse("error", "Invalid user id.");
+    if (!canManageUserDocs($link, $isAdmin, $currentUserId, $userId)) sendResponse("error", "Not authorized.");
+
+    $stmt = mysqli_prepare($link, "SELECT iDocId, sFileName, sFileType, iFileSize, dUploadedAt FROM tbluserdocument WHERE iUserId = ? ORDER BY dUploadedAt DESC");
+    mysqli_stmt_bind_param($stmt, "i", $userId);
+    mysqli_stmt_execute($stmt);
+    $rows = [];
+    $res = mysqli_stmt_get_result($stmt);
+    while ($row = mysqli_fetch_assoc($res)) { $rows[] = $row; }
+    sendResponse("success", "ok", $rows);
+}
+
+if ($action === 'uploaduserdocument') {
+    if (!$isAdmin && !$isTeamLeader) sendResponse("error", "Not authorized.");
+    $userId = reqInt($inputData, 'userId', 0);
+    if (!$userId) sendResponse("error", "Save the user before uploading documents.");
+    if (!canManageUserDocs($link, $isAdmin, $currentUserId, $userId)) sendResponse("error", "Not authorized.");
+
+    if (empty($_FILES['document']) || $_FILES['document']['error'] !== UPLOAD_ERR_OK) {
+        sendResponse("error", "Please choose a file to upload.");
+    }
+    $file = $_FILES['document'];
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    if (!in_array($ext, ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'], true)) {
+        sendResponse("error", "Only PDF, DOC, DOCX, JPG or PNG files are allowed.");
+    }
+    if ($file['size'] > 5 * 1024 * 1024) {
+        sendResponse("error", "Each file must be under 5 MB.");
+    }
+
+    $stmt = mysqli_prepare($link, "SELECT iUserid FROM tbluser WHERE iUserid = ? AND dDeletedAt IS NULL");
+    mysqli_stmt_bind_param($stmt, "i", $userId);
+    mysqli_stmt_execute($stmt);
+    if (mysqli_num_rows(mysqli_stmt_get_result($stmt)) === 0) sendResponse("error", "User not found.");
+
+    $uploadDir = __DIR__ . '/uploads/documents/';
+    if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+    $storedName = 'doc_' . $userId . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
+    if (!move_uploaded_file($file['tmp_name'], $uploadDir . $storedName)) {
+        sendResponse("error", "Could not save the uploaded file.");
+    }
+
+    $origName = basename($file['name']);
+    $stmt = mysqli_prepare($link, "INSERT INTO tbluserdocument (iUserId, sFileName, sStoredPath, sFileType, iFileSize, iUploadedBy) VALUES (?,?,?,?,?,?)");
+    bindDynamic($stmt, [
+        ['i', $userId], ['s', $origName], ['s', $storedName], ['s', $ext], ['i', (int) $file['size']], ['i', $currentUserId],
+    ]);
+    mysqli_stmt_execute($stmt);
+
+    sendResponse("success", "Document uploaded successfully.", ["iDocId" => mysqli_insert_id($link), "sFileName" => $origName]);
+}
+
+if ($action === 'deleteuserdocument') {
+    if (!$isAdmin && !$isTeamLeader) sendResponse("error", "Not authorized.");
+    $docId = reqInt($inputData, 'id', 0);
+    if (!$docId) sendResponse("error", "Invalid document id.");
+
+    $stmt = mysqli_prepare($link, "SELECT iUserId, sStoredPath FROM tbluserdocument WHERE iDocId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $docId);
+    mysqli_stmt_execute($stmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    if (!$row) sendResponse("error", "Document not found.");
+    if (!canManageUserDocs($link, $isAdmin, $currentUserId, $row['iUserId'])) sendResponse("error", "Not authorized.");
+
+    $full = __DIR__ . '/uploads/documents/' . basename($row['sStoredPath']);
+    if (is_file($full)) @unlink($full);
+
+    $stmt = mysqli_prepare($link, "DELETE FROM tbluserdocument WHERE iDocId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $docId);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Document removed.");
+}
+
 if ($action === 'adduser' || $action === 'updateuser') {
     if (!$isAdmin && !$isTeamLeader) sendResponse("error", "Not authorized.");
 
@@ -1700,7 +1954,7 @@ if ($action === 'calendar_events') {
             "color" => '#9333ea',
             "extendedProps" => [
                 "type" => "followup",
-                "description" => "Follow up on " . $row['sReqNo'] . ' (' . $row['sStatus'] . ')' . ($row['sRecruiter'] ? ' — Recruiter: ' . $row['sRecruiter'] : ''),
+                "description" => "Follow up on " . reqNoDisplay($row['sReqNo']) . ' (' . $row['sStatus'] . ')' . ($row['sRecruiter'] ? ' — Recruiter: ' . $row['sRecruiter'] : ''),
                 "recordId" => (int) $row['iReqId'],
             ],
         ];

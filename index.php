@@ -347,7 +347,7 @@ function loadDashboard() {
             var overdueBadge = tier
                 ? ' <span class="optima-badge ' + (tier === 2 ? 'optima-badge-critical' : 'optima-badge-warning') + '" title="Open ' + pendingDays + ' days">' + pendingDays + 'd</span>'
                 : '';
-            reqRows += '<tr' + rowClass + '><td>' + (r.sReqNo || '') + '</td><td>' + (r.sCompanyName || '-') + '</td><td>' + (r.sPost || '') + '</td><td>' + badgeForStatus(r.sStatus) + overdueBadge + '</td></tr>';
+            reqRows += '<tr' + rowClass + '><td>' + crmReqNoDisplay(r.sReqNo) + '</td><td>' + (r.sCompanyName || '-') + '</td><td>' + (r.sPost || '') + '</td><td>' + badgeForStatus(r.sStatus) + overdueBadge + '</td></tr>';
         });
         $('#recentReqBody').html(reqRows || '<tr><td colspan="4" class="text-center text-muted">No requirements yet</td></tr>');
 

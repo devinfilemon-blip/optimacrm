@@ -308,7 +308,7 @@ function loadRequirementDropdown(selected) {
         (res.data || []).forEach(function (r) {
             var opt = document.createElement('option');
             opt.value = r.iReqId;
-            opt.textContent = r.sReqNo + ' — ' + r.sPost + (r.sCompanyName ? ' (' + r.sCompanyName + ')' : '');
+            opt.textContent = crmReqNoDisplay(r.sReqNo) + ' — ' + r.sPost + (r.sCompanyName ? ' (' + r.sCompanyName + ')' : '');
             if (selected && parseInt(selected) === parseInt(r.iReqId)) opt.selected = true;
             sel.appendChild(opt);
         });

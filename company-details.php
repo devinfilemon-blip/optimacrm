@@ -399,7 +399,7 @@ function renderReqTable(rows) {
     if (!rows.length) { body.innerHTML = '<tr><td colspan="9" class="text-center text-muted">No job listings for this company yet.</td></tr>'; return; }
     body.innerHTML = rows.map(function (r) {
         return '<tr>' +
-            '<td>' + esc(r.sReqNo) + '</td>' +
+            '<td>' + esc(crmReqNoDisplay(r.sReqNo)) + '</td>' +
             '<td>' + esc(r.sPost) + '</td>' +
             '<td>' + esc(r.sType) + '</td>' +
             '<td>' + esc(r.iNoOfVacancy) + '</td>' +

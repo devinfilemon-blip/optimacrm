@@ -89,12 +89,16 @@ function fngetlistuser() {
                             { label: 'Delete Forever', icon: 'bx-trash', danger: true, onclick: 'permanentlydeleteuser(' + u.iUserid + ')' }
                           ])
                         : crmActionMenu([
+                            { label: 'View Details', icon: 'bx-detail', href: 'user-details.php?id=' + u.iUserid },
                             { label: 'Edit', icon: 'bx-edit-alt', href: 'add-user.php?id=' + u.iUserid },
                             { label: 'Delete', icon: 'bx-trash', danger: true, onclick: 'deleteuser(' + u.iUserid + ')' }
                           ]);
+                    var nameCell = CRM_TRASH_MODE
+                        ? $('<div>').text(u.sName).html()
+                        : '<a href="user-details.php?id=' + u.iUserid + '">' + $('<div>').text(u.sName).html() + '</a>';
                     rows += '<tr data-id="' + u.iUserid + '">' +
                         '<td>' + (i + 1) + '</td>' +
-                        '<td>' + $('<div>').text(u.sName).html() + '</td>' +
+                        '<td>' + nameCell + '</td>' +
                         '<td>' + $('<div>').text(u.sPhone).html() + '</td>' +
                         '<td>' + $('<div>').text(u.sEmail || '-').html() + '</td>' +
                         '<td>' + $('<div>').text(u.sRole).html() + '</td>' +

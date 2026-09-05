@@ -166,7 +166,7 @@ function fngetlistrequirement() {
                             { label: 'Delete', icon: 'bx-trash', danger: true, onclick: 'deleterequirement(' + r.iReqId + ')' }
                           ]);
                     rows += '<tr data-id="' + r.iReqId + '"' + rowClass + '>' +
-                        '<td>' + esc(r.sReqNo) + '</td>' +
+                        '<td>' + esc(crmReqNoDisplay(r.sReqNo)) + '</td>' +
                         '<td>' + esc(r.dOpenDate) + '</td>' +
                         '<td>' + (CRM_TRASH_MODE ? esc(r.dDeletedAt) : (pendingDays === null ? '-' : pendingDays + 'd')) + '</td>' +
                         '<td>' + esc(r.sCompanyName || '-') + '</td>' +
