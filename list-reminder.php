@@ -31,6 +31,7 @@
                                     <select class="form-control" id="type">
                                         <option value="Reminder">Reminder</option>
                                         <option value="Interview">Interview Schedule</option>
+                                        <option value="Joining">Candidate Joining</option>
                                     </select>
                                 </div>
                                 <div class="mb-3">
@@ -100,7 +101,9 @@ function fngetlistreminder() {
                         : (overdue ? '<span class="optima-badge optima-badge-refine">Overdue</span>' : '<span class="optima-badge optima-badge-searching">Pending</span>');
                     var typeBadge = r.sType === 'Interview'
                         ? '<span class="optima-badge optima-badge-hold">Interview</span>'
-                        : '<span class="optima-badge optima-badge-default">Reminder</span>';
+                        : (r.sType === 'Joining'
+                            ? '<span class="optima-badge optima-badge-searching">Candidate Joining</span>'
+                            : '<span class="optima-badge optima-badge-default">Reminder</span>');
                     var actionItems = [];
                     if (r.sStatus !== 'Done') actionItems.push({ label: 'Mark Done', icon: 'bx-check', onclick: 'markDone(' + r.rrid + ')' });
                     actionItems.push({ label: 'Delete', icon: 'bx-trash', danger: true, onclick: 'deleteReminder(' + r.rrid + ')' });

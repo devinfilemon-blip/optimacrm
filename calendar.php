@@ -84,6 +84,7 @@
                     <select class="form-control" id="scheduleType">
                         <option value="Reminder">Reminder</option>
                         <option value="Interview">Interview Schedule</option>
+                        <option value="Joining">Candidate Joining</option>
                     </select>
                 </div>
                 <div class="mb-3">
@@ -134,9 +135,10 @@ var crmCalendarInstance = null;
     var modalEl = document.getElementById('calendarEventModal');
     var modal = new bootstrap.Modal(modalEl);
 
-    // 'reminder'/'interview' events open the editable Schedule modal instead
-    // (see eventClick below) — only 'joining' still uses this read-only one,
-    // since a candidate's joining date is edited on the placement itself.
+    // 'reminder'/'interview'/'joiningreminder' events open the editable
+    // Schedule modal instead (see eventClick below) — only 'joining' (the
+    // auto-generated one sourced from an actual placement) still uses this
+    // read-only one, since that date is edited on the placement itself.
     var TYPE_LABELS = { reminder: 'Reminder', interview: 'Interview Schedule', joining: 'Candidate Joining' };
     var TYPE_LINKS = { joining: 'add-placement.php?id=' };
 
@@ -187,7 +189,7 @@ var crmCalendarInstance = null;
             var props = info.event.extendedProps || {};
             var type = props.type || 'event';
 
-            if (type === 'reminder' || type === 'interview') {
+            if (type === 'reminder' || type === 'interview' || type === 'joiningreminder') {
                 openScheduleModal(props.recordId, null);
                 return;
             }

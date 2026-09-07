@@ -2361,7 +2361,7 @@ if ($action === 'addreminder') {
     $date = reqStr($inputData, 'date');
     if (!$desc || !$date) sendResponse("error", "Description and date are required.");
     $type = reqStr($inputData, 'type', 'Reminder');
-    $type = in_array($type, ['Reminder', 'Interview'], true) ? $type : 'Reminder';
+    $type = in_array($type, ['Reminder', 'Interview', 'Joining'], true) ? $type : 'Reminder';
     $reqId = reqInt($inputData, 'reqId', null);
     $candidateId = reqInt($inputData, 'candidateId', null);
     $userId = reqInt($inputData, 'userId', $currentUserId);
@@ -2381,7 +2381,7 @@ if ($action === 'updatereminder') {
     $date = reqStr($inputData, 'date');
     if (!$desc || !$date) sendResponse("error", "Description and date are required.");
     $type = reqStr($inputData, 'type', 'Reminder');
-    $type = in_array($type, ['Reminder', 'Interview'], true) ? $type : 'Reminder';
+    $type = in_array($type, ['Reminder', 'Interview', 'Joining'], true) ? $type : 'Reminder';
     $reqId = reqInt($inputData, 'reqId', null);
     $candidateId = reqInt($inputData, 'candidateId', null);
 
@@ -2430,9 +2430,12 @@ if ($action === 'calendar_events') {
     $res = mysqli_stmt_get_result($stmt);
     while ($row = mysqli_fetch_assoc($res)) {
         $isInterview = $row['sType'] === 'Interview';
+        $isJoining = $row['sType'] === 'Joining';
         $context = trim(($row['sCandidateName'] ? $row['sCandidateName'] : '') . ($row['sCompanyName'] ? ' — ' . $row['sCompanyName'] : ''), ' —');
-        $title = ($isInterview ? '🗣️ ' : '⏰ ') . ($context !== '' ? $context : $row['sDescription']);
-        $color = $row['sStatus'] === 'Done' ? '#94a3b8' : ($isInterview ? '#9333ea' : '#059669');
+        $icon = $isInterview ? '🗣️ ' : ($isJoining ? "🧑\u{200D}💼 " : '⏰ ');
+        $title = $icon . ($context !== '' ? $context : $row['sDescription']);
+        $color = $row['sStatus'] === 'Done' ? '#94a3b8' : ($isInterview ? '#9333ea' : ($isJoining ? '#0891b2' : '#059669'));
+        $type = $isInterview ? "interview" : ($isJoining ? "joiningreminder" : "reminder");
         $events[] = [
             "id" => "reminder-" . $row['rrid'],
             "title" => $title,
@@ -2440,7 +2443,7 @@ if ($action === 'calendar_events') {
             "allDay" => true,
             "color" => $color,
             "extendedProps" => [
-                "type" => $isInterview ? "interview" : "reminder",
+                "type" => $type,
                 "description" => $row['sDescription'],
                 "status" => $row['sStatus'],
                 "assignedBy" => $row['sAssignedBy'],
