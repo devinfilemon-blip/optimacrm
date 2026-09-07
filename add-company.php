@@ -70,6 +70,11 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                                             <label class="form-label">Location</label>
                                             <input type="text" class="form-control" id="location">
                                         </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Google Location</label>
+                                            <input type="url" class="form-control" id="googleLocation" placeholder="Paste a Google Maps link (Share > Copy link)">
+                                            <div class="form-text" id="googleLocationLink"></div>
+                                        </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="mb-3">
@@ -122,6 +127,20 @@ function showMessage(msg, ok) {
     el.className = ok ? 'add-message' : 'error-message';
 }
 
+function renderGoogleLocationLink() {
+    var url = document.getElementById('googleLocation').value.trim();
+    var el = document.getElementById('googleLocationLink');
+    el.innerHTML = '';
+    if (!url || !/^https?:\/\//i.test(url)) return;
+    var a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.innerHTML = '<i class="bx bx-map"></i> Open in Google Maps';
+    el.appendChild(a);
+}
+document.getElementById('googleLocation').addEventListener('input', renderGoogleLocationLink);
+
 function loadCompany() {
     if (!editId) return;
     fetch('api.php', {
@@ -139,6 +158,8 @@ function loadCompany() {
         document.getElementById('email').value = d.sEmail || '';
         document.getElementById('industry').value = d.sIndustry || '';
         document.getElementById('location').value = d.sLocation || '';
+        document.getElementById('googleLocation').value = d.sGoogleLocation || '';
+        renderGoogleLocationLink();
         document.getElementById('gstin').value = d.sGstin || '';
         document.getElementById('companyStatusSelect').value = d.sStatus || 'Active';
         document.getElementById('address').value = d.sAddress || '';
@@ -159,6 +180,7 @@ function saveCompany() {
         email: document.getElementById('email').value,
         industry: document.getElementById('industry').value,
         location: document.getElementById('location').value,
+        googleLocation: document.getElementById('googleLocation').value,
         gstin: document.getElementById('gstin').value,
         status: document.getElementById('companyStatusSelect').value,
         address: document.getElementById('address').value,

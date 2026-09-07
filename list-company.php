@@ -55,6 +55,15 @@
 var CRM_TRASH_MODE = new URLSearchParams(window.location.search).get('trashed') === '1';
 var companyRowsById = {};
 
+// Only http(s) links render as clickable — guards against a pasted
+// javascript: URI, and .attr()/jQuery handles the HTML-attribute escaping.
+function mapPinLink(url) {
+    if (!url || !/^https?:\/\//i.test(url)) return '';
+    var $a = $('<a target="_blank" rel="noopener" title="Open in Google Maps" class="ms-1"><i class="bx bx-map text-primary"></i></a>');
+    $a.attr('href', url);
+    return $a.prop('outerHTML');
+}
+
 if (CRM_TRASH_MODE) {
     document.getElementById('pageTitle').textContent = 'Companies — Trash';
     document.getElementById('pageActions').innerHTML = '<a href="list-company.php" class="btn btn-primary btn-sm"><i class="bx bx-arrow-back"></i> Back to List</a>';
@@ -94,7 +103,7 @@ function fngetlistcompany() {
                         '<td>' + nameCell + '</td>' +
                         '<td>' + $('<div>').text(c.sContactPerson || '-').html() + '</td>' +
                         '<td>' + $('<div>').text(c.sPhone || '-').html() + '</td>' +
-                        '<td>' + $('<div>').text(c.sLocation || '-').html() + '</td>' +
+                        '<td>' + $('<div>').text(c.sLocation || '-').html() + mapPinLink(c.sGoogleLocation) + '</td>' +
                         '<td>' + (CRM_TRASH_MODE ? esc(c.dDeletedAt) : c.reqCount) + '</td>' +
                         '<td>' + statusBadge + '</td>' +
                         actions +

@@ -68,13 +68,6 @@
                                             <p class="optima-stat-label">Closed</p>
                                         </div>
                                     </div>
-                                    <div class="optima-combo-item tone-mint optima-card-clickable" data-href="list-requirement.php?q=Selected">
-                                        <div class="optima-stat-icon bg-mint"><i class="bx bx-check-circle"></i></div>
-                                        <div class="optima-stat-text">
-                                            <p class="optima-stat-value" id="statSelected">&mdash;</p>
-                                            <p class="optima-stat-label">Selected Candidates</p>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -329,7 +322,6 @@ function loadDashboard() {
         $('#statTotalVacancy').text(d.totalVacancies);
         $('#statSearching').text(d.openVacancies);
         $('#statClosed').text(d.closedVacancies);
-        $('#statSelected').text(d.selectedCandidates);
         $('#statPlacementsMonth').text(d.placementsThisMonth);
         $('#statPlacementsTillDate').text(d.placementsTillDate);
         $('#statRevenueMonth').text(fmtCurrency(d.revenueThisMonth));

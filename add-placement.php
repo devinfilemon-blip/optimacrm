@@ -104,7 +104,7 @@ $candidateId = isset($_GET['candidateId']) ? (int) $_GET['candidateId'] : 0;
                                     <div class="col-md-3">
                                         <div class="mb-3">
                                             <label class="form-label">Worked By</label>
-                                            <input type="text" class="form-control" id="workedBy" placeholder="Recruiter name">
+                                            <select class="form-control" id="workedBy"><option value="">Loading&hellip;</option></select>
                                         </div>
                                     </div>
                                     <div class="col-md-12">
@@ -316,6 +316,38 @@ function loadRequirementDropdown(selected) {
     });
 }
 
+function loadRecruiterDropdown(selected) {
+    fetch('api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'fngetlistrecruiter' })
+    })
+    .then(r => r.json())
+    .then(res => {
+        var sel = document.getElementById('workedBy');
+        sel.innerHTML = '<option value="">-- Select Recruiter --</option>';
+        var found = false;
+        (res.data || []).forEach(function (s) {
+            var opt = document.createElement('option');
+            opt.value = s.sRecruiter;
+            opt.textContent = s.sRecruiter;
+            if (selected && selected === s.sRecruiter) { opt.selected = true; found = true; }
+            sel.appendChild(opt);
+        });
+        // An existing placement's recruiter may since have left / gone
+        // inactive — keep their name visible and selected rather than
+        // silently blanking out real historical data.
+        if (selected && !found) {
+            var opt = document.createElement('option');
+            opt.value = selected;
+            opt.textContent = selected + ' (inactive)';
+            opt.selected = true;
+            sel.appendChild(opt);
+        }
+        crmRefreshSelect2(sel);
+    });
+}
+
 function recalcGst() {
     var charges = parseFloat(document.getElementById('charges').value) || 0;
     var pct = parseFloat(document.getElementById('gstPercent').value) || 0;
@@ -340,6 +372,7 @@ function loadPlacement() {
 
     if (!editId) {
         loadCandidateDropdown(initialCandidateId || null);
+        loadRecruiterDropdown(null);
         recalcGst();
         return;
     }
@@ -361,7 +394,7 @@ function loadPlacement() {
         document.getElementById('joiningDate').value = d.dJoiningDate || '';
         document.getElementById('joiningStatus').value = d.sJoiningStatus || 'Offer Accepted';
         crmRefreshSelect2(document.getElementById('joiningStatus'));
-        document.getElementById('workedBy').value = d.sWorkedBy || '';
+        loadRecruiterDropdown(d.sWorkedBy);
         document.getElementById('remark').value = d.sRemark || '';
 
         document.getElementById('invoiceDate').value = d.dInvoiceDate || '';

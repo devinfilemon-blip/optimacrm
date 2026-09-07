@@ -36,7 +36,7 @@
                                 <div class="optima-stat-icon bg-blue"><i class="bx bx-briefcase-alt-2"></i></div>
                                 <div class="optima-stat-text">
                                     <p class="optima-stat-value" id="statReqYear">&mdash;</p>
-                                    <p class="optima-stat-label">Requirements Opened</p>
+                                    <p class="optima-stat-label">Total Vacancy</p>
                                 </div>
                             </div>
                         </div>
@@ -216,7 +216,7 @@ function renderMonthlyChart(rows) {
         colors: [slot('blue'), slot('orange')],
         fill: { type: 'gradient', gradient: { shade: 'light', type: 'vertical', shadeIntensity: 0.45, opacityFrom: 0.95, opacityTo: 0.65 } },
         series: [
-            { name: 'Requirements Opened', data: rows.map(r => r.openings) },
+            { name: 'Total Vacancy', data: rows.map(r => r.openings) },
             { name: 'Candidates Placed', data: rows.map(r => r.placements) }
         ],
         xaxis: { categories: rows.map(r => monthLabel(r.ym)) },

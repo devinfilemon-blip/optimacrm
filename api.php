@@ -396,9 +396,6 @@ if ($action === 'dashboardStats') {
     $r = mysqli_query($link, "SELECT COUNT(*) c FROM tblrequirement WHERE dDeletedAt IS NULL AND sStatus IN ('Closed by Co.', 'Not Joining')");
     $stats['closedVacancies'] = (int) mysqli_fetch_assoc($r)['c'];
 
-    $r = mysqli_query($link, "SELECT COUNT(*) c FROM tblrequirement WHERE dDeletedAt IS NULL AND sStatus = 'Selected'");
-    $stats['selectedCandidates'] = (int) mysqli_fetch_assoc($r)['c'];
-
     $r = mysqli_query($link, "SELECT COUNT(*) c FROM tblcompany WHERE sStatus = 'Active' AND dDeletedAt IS NULL");
     $stats['companies'] = (int) mysqli_fetch_assoc($r)['c'];
 
@@ -692,6 +689,7 @@ if ($action === 'addcompany' || $action === 'updatecompany') {
     $email = reqStr($inputData, 'email');
     $industry = reqStr($inputData, 'industry');
     $location = reqStr($inputData, 'location');
+    $googleLocation = reqStr($inputData, 'googleLocation');
     $address = reqStr($inputData, 'address');
     $gstin = reqStr($inputData, 'gstin');
     $status = reqStr($inputData, 'status', 'Active');
@@ -699,16 +697,22 @@ if ($action === 'addcompany' || $action === 'updatecompany') {
 
     if ($action === 'addcompany') {
         $stmt = mysqli_prepare($link, "INSERT INTO tblcompany
-            (sCompanyName, sContactPerson, sPhone, sEmail, sIndustry, sLocation, sAddress, sGstin, sStatus, sNotes, iCreatedBy)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?)");
-        mysqli_stmt_bind_param($stmt, "ssssssssssi", $name, $contactPerson, $phone, $email, $industry, $location, $address, $gstin, $status, $notes, $currentUserId);
+            (sCompanyName, sContactPerson, sPhone, sEmail, sIndustry, sLocation, sGoogleLocation, sAddress, sGstin, sStatus, sNotes, iCreatedBy)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
+        bindDynamic($stmt, [
+            ['s', $name], ['s', $contactPerson], ['s', $phone], ['s', $email], ['s', $industry], ['s', $location],
+            ['s', $googleLocation], ['s', $address], ['s', $gstin], ['s', $status], ['s', $notes], ['i', $currentUserId],
+        ]);
         mysqli_stmt_execute($stmt);
         sendResponse("success", "Company added successfully.");
     } else {
         $id = reqInt($inputData, 'id', 0);
         if (!$id) sendResponse("error", "Invalid company id.");
-        $stmt = mysqli_prepare($link, "UPDATE tblcompany SET sCompanyName=?, sContactPerson=?, sPhone=?, sEmail=?, sIndustry=?, sLocation=?, sAddress=?, sGstin=?, sStatus=?, sNotes=? WHERE iCompanyId=?");
-        mysqli_stmt_bind_param($stmt, "ssssssssssi", $name, $contactPerson, $phone, $email, $industry, $location, $address, $gstin, $status, $notes, $id);
+        $stmt = mysqli_prepare($link, "UPDATE tblcompany SET sCompanyName=?, sContactPerson=?, sPhone=?, sEmail=?, sIndustry=?, sLocation=?, sGoogleLocation=?, sAddress=?, sGstin=?, sStatus=?, sNotes=? WHERE iCompanyId=?");
+        bindDynamic($stmt, [
+            ['s', $name], ['s', $contactPerson], ['s', $phone], ['s', $email], ['s', $industry], ['s', $location],
+            ['s', $googleLocation], ['s', $address], ['s', $gstin], ['s', $status], ['s', $notes], ['i', $id],
+        ]);
         mysqli_stmt_execute($stmt);
         sendResponse("success", "Company updated successfully.");
     }
@@ -2326,25 +2330,67 @@ if ($action === 'deleteeducation') {
 // =====================================================================
 // REMINDERS
 // =====================================================================
+// sType splits this same table into two calendar categories: plain
+// Reminders, and Interview Schedule (which replaced the old calendar
+// events auto-generated from tblrequirement.dFollowupDate — see
+// migration_add_reminder_type_2026_09_11.sql).
+$reminderSelectSql = "SELECT rr.*, u.sName AS sUserName, cd.sCandidateName, r.sPost, r.sReqNo, c.sCompanyName
+                       FROM tblreminders rr
+                       LEFT JOIN tbluser u ON u.iUserid = rr.iUserid
+                       LEFT JOIN tblcandidate cd ON cd.iCandidateId = rr.iCandidateId
+                       LEFT JOIN tblrequirement r ON r.iReqId = rr.iReqId
+                       LEFT JOIN tblcompany c ON c.iCompanyId = r.iCompanyId";
+
 if ($action === 'fngetlistreminder') {
     $rows = [];
-    $r = mysqli_query($link, "SELECT rr.*, u.sName AS sUserName
-                               FROM tblreminders rr LEFT JOIN tbluser u ON u.iUserid = rr.iUserid
-                               ORDER BY rr.sDate ASC");
+    $r = mysqli_query($link, $reminderSelectSql . " ORDER BY rr.sDate ASC");
     while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
     sendResponse("success", "ok", $rows);
+}
+if ($action === 'getreminderbyid') {
+    $id = reqInt($inputData, 'id', 0);
+    $stmt = mysqli_prepare($link, $reminderSelectSql . " WHERE rr.rrid = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    if ($row) sendResponse("success", "ok", $row);
+    sendResponse("error", "Reminder not found.");
 }
 if ($action === 'addreminder') {
     $desc = reqStr($inputData, 'description');
     $date = reqStr($inputData, 'date');
     if (!$desc || !$date) sendResponse("error", "Description and date are required.");
+    $type = reqStr($inputData, 'type', 'Reminder');
+    $type = in_array($type, ['Reminder', 'Interview'], true) ? $type : 'Reminder';
+    $reqId = reqInt($inputData, 'reqId', null);
+    $candidateId = reqInt($inputData, 'candidateId', null);
     $userId = reqInt($inputData, 'userId', $currentUserId);
     $assignedBy = $_SESSION['username'] ?? 'System';
 
-    $stmt = mysqli_prepare($link, "INSERT INTO tblreminders (iUserid, sDescription, sDate, sAssignedBy) VALUES (?,?,?,?)");
-    mysqli_stmt_bind_param($stmt, "isss", $userId, $desc, $date, $assignedBy);
+    $stmt = mysqli_prepare($link, "INSERT INTO tblreminders (iUserid, sDescription, sType, sDate, iReqId, iCandidateId, sAssignedBy) VALUES (?,?,?,?,?,?,?)");
+    bindDynamic($stmt, [
+        ['i', $userId], ['s', $desc], ['s', $type], ['s', $date], ['i', $reqId], ['i', $candidateId], ['s', $assignedBy],
+    ]);
     mysqli_stmt_execute($stmt);
-    sendResponse("success", "Reminder added successfully.");
+    sendResponse("success", "Schedule added successfully.", ["id" => mysqli_insert_id($link)]);
+}
+if ($action === 'updatereminder') {
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid reminder id.");
+    $desc = reqStr($inputData, 'description');
+    $date = reqStr($inputData, 'date');
+    if (!$desc || !$date) sendResponse("error", "Description and date are required.");
+    $type = reqStr($inputData, 'type', 'Reminder');
+    $type = in_array($type, ['Reminder', 'Interview'], true) ? $type : 'Reminder';
+    $reqId = reqInt($inputData, 'reqId', null);
+    $candidateId = reqInt($inputData, 'candidateId', null);
+
+    $stmt = mysqli_prepare($link, "UPDATE tblreminders SET sDescription=?, sType=?, sDate=?, iReqId=?, iCandidateId=? WHERE rrid=?");
+    bindDynamic($stmt, [
+        ['s', $desc], ['s', $type], ['s', $date], ['i', $reqId], ['i', $candidateId], ['i', $id],
+    ]);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Schedule updated successfully.");
 }
 if ($action === 'markreminderdone') {
     $id = reqInt($inputData, 'id', 0);
@@ -2371,47 +2417,34 @@ if ($action === 'calendar_events') {
 
     $events = [];
 
-    // ---- Reminders / follow-up tasks ----
-    $stmt = mysqli_prepare($link, "SELECT rrid, sDescription, sDate, sStatus, sAssignedBy
-                                    FROM tblreminders WHERE sDate >= ? AND sDate < ?");
+    // ---- Reminders + Interview Schedule (same table, split by sType) ----
+    $stmt = mysqli_prepare($link, "SELECT rr.rrid, rr.sDescription, rr.sType, rr.sDate, rr.sStatus, rr.sAssignedBy,
+                                           cd.sCandidateName, r.sPost, c.sCompanyName
+                                    FROM tblreminders rr
+                                    LEFT JOIN tblcandidate cd ON cd.iCandidateId = rr.iCandidateId
+                                    LEFT JOIN tblrequirement r ON r.iReqId = rr.iReqId
+                                    LEFT JOIN tblcompany c ON c.iCompanyId = r.iCompanyId
+                                    WHERE rr.sDate >= ? AND rr.sDate < ?");
     bindDynamic($stmt, [['s', $start], ['s', $end]]);
     mysqli_stmt_execute($stmt);
     $res = mysqli_stmt_get_result($stmt);
     while ($row = mysqli_fetch_assoc($res)) {
+        $isInterview = $row['sType'] === 'Interview';
+        $context = trim(($row['sCandidateName'] ? $row['sCandidateName'] : '') . ($row['sCompanyName'] ? ' — ' . $row['sCompanyName'] : ''), ' —');
+        $title = ($isInterview ? '🗣️ ' : '⏰ ') . ($context !== '' ? $context : $row['sDescription']);
+        $color = $row['sStatus'] === 'Done' ? '#94a3b8' : ($isInterview ? '#9333ea' : '#059669');
         $events[] = [
             "id" => "reminder-" . $row['rrid'],
-            "title" => "⏰ " . $row['sDescription'],
+            "title" => $title,
             "start" => $row['sDate'],
             "allDay" => true,
-            "color" => $row['sStatus'] === 'Done' ? '#94a3b8' : '#059669',
+            "color" => $color,
             "extendedProps" => [
-                "type" => "reminder",
+                "type" => $isInterview ? "interview" : "reminder",
                 "description" => $row['sDescription'],
                 "status" => $row['sStatus'],
                 "assignedBy" => $row['sAssignedBy'],
                 "recordId" => (int) $row['rrid'],
-            ],
-        ];
-    }
-
-    // ---- Requirement follow-ups ----
-    $stmt = mysqli_prepare($link, "SELECT r.iReqId, r.sReqNo, r.sPost, r.sStatus, r.dFollowupDate, r.sRecruiter, c.sCompanyName
-                                    FROM tblrequirement r LEFT JOIN tblcompany c ON c.iCompanyId = r.iCompanyId
-                                    WHERE r.dFollowupDate >= ? AND r.dFollowupDate < ?");
-    bindDynamic($stmt, [['s', $start], ['s', $end]]);
-    mysqli_stmt_execute($stmt);
-    $res = mysqli_stmt_get_result($stmt);
-    while ($row = mysqli_fetch_assoc($res)) {
-        $events[] = [
-            "id" => "followup-" . $row['iReqId'],
-            "title" => "📋 " . $row['sPost'] . ($row['sCompanyName'] ? ' — ' . $row['sCompanyName'] : ''),
-            "start" => $row['dFollowupDate'],
-            "allDay" => true,
-            "color" => '#9333ea',
-            "extendedProps" => [
-                "type" => "followup",
-                "description" => "Follow up on " . reqNoDisplay($row['sReqNo']) . ' (' . $row['sStatus'] . ')' . ($row['sRecruiter'] ? ' — Recruiter: ' . $row['sRecruiter'] : ''),
-                "recordId" => (int) $row['iReqId'],
             ],
         ];
     }

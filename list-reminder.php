@@ -24,8 +24,15 @@
                     <div class="col-xl-4">
                         <div class="card">
                             <div class="card-body">
-                                <h5 class="card-title">Add Reminder</h5>
+                                <h5 class="card-title">Add Schedule</h5>
                                 <div><span id="message"></span></div>
+                                <div class="mb-3">
+                                    <label class="form-label">Type</label>
+                                    <select class="form-control" id="type">
+                                        <option value="Reminder">Reminder</option>
+                                        <option value="Interview">Interview Schedule</option>
+                                    </select>
+                                </div>
                                 <div class="mb-3">
                                     <label class="form-label">Description *</label>
                                     <input type="text" class="form-control" id="description" placeholder="e.g. Call HR at Marvelous Engineering">
@@ -34,7 +41,7 @@
                                     <label class="form-label">Date *</label>
                                     <input type="date" class="form-control" id="date">
                                 </div>
-                                <button type="button" class="btn btn-primary w-md" onclick="addReminder();">Add Reminder</button>
+                                <button type="button" class="btn btn-primary w-md" onclick="addReminder();">Add</button>
                             </div>
                         </div>
                     </div>
@@ -44,6 +51,7 @@
                                 <thead>
                                     <tr>
                                         <th>Date</th>
+                                        <th>Type</th>
                                         <th>Description</th>
                                         <th>Assigned By</th>
                                         <th>Status</th>
@@ -67,6 +75,8 @@
 <script>
 function esc(s) { return $('<div>').text(s == null ? '' : s).html(); }
 
+var reminderRowsById = {};
+
 function fngetlistreminder() {
     $.ajax({
         url: 'api.php',
@@ -76,21 +86,27 @@ function fngetlistreminder() {
         success: function (response) {
             if (response.status === 'success') {
                 var rows = '';
+                reminderRowsById = {};
                 var today = new Date().toISOString().slice(0, 10);
                 var data = response.data;
                 if (new URLSearchParams(window.location.search).get('dueOnly') === '1') {
                     data = data.filter(function (r) { return r.sStatus === 'Pending' && r.sDate <= today; });
                 }
                 data.forEach(function (r) {
+                    reminderRowsById[r.rrid] = r;
                     var overdue = r.sStatus === 'Pending' && r.sDate <= today;
                     var badge = r.sStatus === 'Done'
                         ? '<span class="optima-badge optima-badge-closed">Done</span>'
                         : (overdue ? '<span class="optima-badge optima-badge-refine">Overdue</span>' : '<span class="optima-badge optima-badge-searching">Pending</span>');
+                    var typeBadge = r.sType === 'Interview'
+                        ? '<span class="optima-badge optima-badge-hold">Interview</span>'
+                        : '<span class="optima-badge optima-badge-default">Reminder</span>';
                     var actionItems = [];
                     if (r.sStatus !== 'Done') actionItems.push({ label: 'Mark Done', icon: 'bx-check', onclick: 'markDone(' + r.rrid + ')' });
                     actionItems.push({ label: 'Delete', icon: 'bx-trash', danger: true, onclick: 'deleteReminder(' + r.rrid + ')' });
-                    rows += '<tr>' +
+                    rows += '<tr data-id="' + r.rrid + '">' +
                         '<td>' + esc(r.sDate) + '</td>' +
+                        '<td>' + typeBadge + '</td>' +
                         '<td>' + esc(r.sDescription) + '</td>' +
                         '<td>' + esc(r.sAssignedBy) + '</td>' +
                         '<td>' + badge + '</td>' +
@@ -101,7 +117,7 @@ function fngetlistreminder() {
                 $('#datatable tbody').html(rows);
                 $('#datatable').DataTable({ order: [[0, 'asc']] });
             } else {
-                $('#datatable tbody').html('<tr><td colspan="5">No reminders found</td></tr>');
+                $('#datatable tbody').html('<tr><td colspan="6">No reminders found</td></tr>');
             }
         }
     });
@@ -115,7 +131,7 @@ function addReminder() {
     fetch('api.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'addreminder', description: description, date: date })
+        body: JSON.stringify({ action: 'addreminder', description: description, date: date, type: document.getElementById('type').value })
     })
     .then(r => r.json())
     .then(res => {
@@ -129,6 +145,21 @@ function addReminder() {
         }
     });
 }
+
+// Double-click a row to edit Type/Description/Date in place.
+window.crmInlineEdit = {
+    getRowId: function ($row) { return parseInt($row.data('id'), 10); },
+    getFullRow: function (id) { return reminderRowsById[id]; },
+    fields: [
+        { cellIndex: 0, key: 'sDate', type: 'date' },
+        { cellIndex: 2, key: 'sDescription', type: 'text' }
+    ],
+    toPayload: function (merged, id) {
+        return { id: id, description: merged.sDescription, date: merged.sDate, type: merged.sType, candidateId: merged.iCandidateId, reqId: merged.iReqId };
+    },
+    saveAction: 'updatereminder',
+    onSaved: function () { fngetlistreminder(); }
+};
 
 function markDone(id) {
     fetch('api.php', {
