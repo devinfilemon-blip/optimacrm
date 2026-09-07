@@ -26,6 +26,14 @@ define('BILLER_BANK_IFSC', 'UBIN0537705');
 define('BILLER_PAYMENT_TERMS_DAYS', 8);
 define('BILLER_JURISDICTION', 'ICHALKARANJI');
 
+// PHP 8.1+ made mysqli throw mysqli_sql_exception on error by default: every
+// mysqli_stmt_errno()/mysqli_connect_error() check already throughout this
+// app (including the "already exists" duplicate-key fallbacks) was written
+// assuming the pre-8.1 behavior — a failed call returning false/null rather
+// than throwing. Restore that so those checks actually run instead of a raw
+// fatal error (with a full stack trace) reaching the client.
+mysqli_report(MYSQLI_REPORT_OFF);
+
 /* Attempt to connect to MySQL database */
 $link = mysqli_connect(DB_SERVER, DB_USERNAME, DB_PASSWORD, DB_NAME);
 

@@ -32,6 +32,7 @@
                             <tr>
                                 <th>Name</th>
                                 <th>Mobile</th>
+                                <th>Email</th>
                                 <th>Type</th>
                                 <th>Education</th>
                                 <th>Experience</th>
@@ -90,6 +91,7 @@ function fngetlistcandidate() {
                     rows += '<tr data-id="' + c.iCandidateId + '">' +
                         '<td>' + esc(c.sCandidateName) + '</td>' +
                         '<td>' + esc(c.sMobile || '-') + '</td>' +
+                        '<td>' + esc(c.sEmail || '-') + '</td>' +
                         '<td>' + esc(c.sType) + '</td>' +
                         '<td>' + esc(c.sEducation || '-') + '</td>' +
                         '<td>' + esc(c.sExperience || '-') + '</td>' +
@@ -103,10 +105,10 @@ function fngetlistcandidate() {
                         '</tr>';
                 });
                 if ($.fn.DataTable.isDataTable('#datatable')) $('#datatable').DataTable().destroy();
-                $('#datatable tbody').html(rows || '<tr><td colspan="10">' + (CRM_TRASH_MODE ? 'Trash is empty' : 'No candidates found') + '</td></tr>');
+                $('#datatable tbody').html(rows || '<tr><td colspan="11">' + (CRM_TRASH_MODE ? 'Trash is empty' : 'No candidates found') + '</td></tr>');
                 if (rows) $('#datatable').DataTable({ order: [[0, 'asc']] });
             } else {
-                $('#datatable tbody').html('<tr><td colspan="10">No candidates found</td></tr>');
+                $('#datatable tbody').html('<tr><td colspan="11">No candidates found</td></tr>');
             }
         }
     });
@@ -164,18 +166,21 @@ if (!CRM_TRASH_MODE) {
         fields: [
             { cellIndex: 0, key: 'sCandidateName', type: 'text' },
             { cellIndex: 1, key: 'sMobile', type: 'text' },
-            { cellIndex: 2, key: 'sType', type: 'select', options: [
+            { cellIndex: 2, key: 'sEmail', type: 'text' },
+            { cellIndex: 3, key: 'sType', type: 'select', options: [
                 { value: 'NT', label: 'NT' },
                 { value: 'T', label: 'T' }
             ] },
-            { cellIndex: 4, key: 'sExperience', type: 'text' },
-            { cellIndex: 5, key: 'sCurrentCompany', type: 'text' }
+            { cellIndex: 5, key: 'sExperience', type: 'text' },
+            { cellIndex: 6, key: 'sCurrentCompany', type: 'text' }
         ],
         toPayload: function (merged, id) {
             return {
-                id: id, candidateName: merged.sCandidateName, mobile: merged.sMobile, type: merged.sType,
-                education: merged.sEducation, experience: merged.sExperience, currentCompany: merged.sCurrentCompany,
-                address: merged.sAddress, source: merged.sSource, ref1: merged.sRef1, ref2: merged.sRef2, remark: merged.sRemark
+                id: id, candidateName: merged.sCandidateName, mobile: merged.sMobile, email: merged.sEmail, gender: merged.sGender, type: merged.sType,
+                appliedFor: merged.sAppliedFor, education: merged.sEducation, experience: merged.sExperience, currentCompany: merged.sCurrentCompany,
+                currentDesignation: merged.sCurrentDesignation, currentCtc: merged.sCurrentCtc, expectedCtc: merged.sExpectedCtc,
+                noticePeriod: merged.sNoticePeriod, sourcedDate: merged.dSourcedDate,
+                address: merged.sAddress, source: merged.sSource, ref1: merged.sRef1, remark: merged.sRemark
             };
         },
         saveAction: 'updatecandidate',

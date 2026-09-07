@@ -72,17 +72,95 @@ function reqNoDisplay($reqNo) {
 }
 
 /** Mobile numbers are globally unique across candidates (trashed ones included). */
-function candidateMobileDuplicateExists($link, $mobile, $excludeId = null) {
-    if ($mobile === null || $mobile === '') return false;
-    if ($excludeId) {
-        $stmt = mysqli_prepare($link, "SELECT iCandidateId FROM tblcandidate WHERE sMobile = ? AND iCandidateId <> ? LIMIT 1");
-        mysqli_stmt_bind_param($stmt, "si", $mobile, $excludeId);
-    } else {
-        $stmt = mysqli_prepare($link, "SELECT iCandidateId FROM tblcandidate WHERE sMobile = ? LIMIT 1");
-        mysqli_stmt_bind_param($stmt, "s", $mobile);
+/**
+ * Checks mobile and email independently — either match counts as a
+ * duplicate. Returns a specific, user-facing reason string, or null
+ * when the candidate is clear to create/update.
+ */
+function findCandidateDuplicateReason($link, $mobile, $email, $excludeId = null) {
+    if ($mobile) {
+        if ($excludeId) {
+            $stmt = mysqli_prepare($link, "SELECT iCandidateId FROM tblcandidate WHERE sMobile = ? AND iCandidateId <> ? LIMIT 1");
+            mysqli_stmt_bind_param($stmt, "si", $mobile, $excludeId);
+        } else {
+            $stmt = mysqli_prepare($link, "SELECT iCandidateId FROM tblcandidate WHERE sMobile = ? LIMIT 1");
+            mysqli_stmt_bind_param($stmt, "s", $mobile);
+        }
+        mysqli_stmt_execute($stmt);
+        if (mysqli_num_rows(mysqli_stmt_get_result($stmt)) > 0) {
+            return "A candidate with this mobile number already exists.";
+        }
     }
+    if ($email) {
+        if ($excludeId) {
+            $stmt = mysqli_prepare($link, "SELECT iCandidateId FROM tblcandidate WHERE sEmail = ? AND iCandidateId <> ? LIMIT 1");
+            mysqli_stmt_bind_param($stmt, "si", $email, $excludeId);
+        } else {
+            $stmt = mysqli_prepare($link, "SELECT iCandidateId FROM tblcandidate WHERE sEmail = ? LIMIT 1");
+            mysqli_stmt_bind_param($stmt, "s", $email);
+        }
+        mysqli_stmt_execute($stmt);
+        if (mysqli_num_rows(mysqli_stmt_get_result($stmt)) > 0) {
+            return "A candidate with this email address already exists.";
+        }
+    }
+    return null;
+}
+
+/**
+ * Keeps the auto-generated Recruiter Commission expense for one placement in
+ * sync with its current CTC and recruiter — Commission = 20% of Annual CTC.
+ * Call this after every placement create/update/restore, and (with the
+ * placement row still present) before a soft- or hard-delete. Nothing to
+ * store beyond the link — recruiter/candidate/company/CTC/invoice all stay
+ * on tblplacement and are joined in wherever the expense is displayed.
+ */
+function syncPlacementCommission($link, $placementId) {
+    $stmt = mysqli_prepare($link, "SELECT dCtc, sWorkedBy, dJoiningDate, dCreatedAt, dDeletedAt FROM tblplacement WHERE iPlacementId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $placementId);
     mysqli_stmt_execute($stmt);
-    return mysqli_num_rows(mysqli_stmt_get_result($stmt)) > 0;
+    $p = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+
+    $ctc = $p ? (float) $p['dCtc'] : 0;
+    $recruiter = $p ? trim((string) $p['sWorkedBy']) : '';
+    $isTrashed = $p && $p['dDeletedAt'] !== null;
+    $isLive = $p && !$isTrashed;
+
+    // A trashed placement should trash its commission alongside it — restoring
+    // the placement (below) brings the commission back too. Only a placement
+    // that's gone entirely, or no longer has a CTC/recruiter to base a
+    // commission on, should have that commission row removed for good.
+    if ($isTrashed) {
+        $stmt = mysqli_prepare($link, "UPDATE tblexpense SET dDeletedAt = NOW() WHERE iPlacementId = ? AND sExpenseType = 'Commission' AND dDeletedAt IS NULL");
+        mysqli_stmt_bind_param($stmt, "i", $placementId);
+        mysqli_stmt_execute($stmt);
+        return;
+    }
+    if (!$isLive || $ctc <= 0 || $recruiter === '') {
+        $stmt = mysqli_prepare($link, "DELETE FROM tblexpense WHERE iPlacementId = ? AND sExpenseType = 'Commission'");
+        mysqli_stmt_bind_param($stmt, "i", $placementId);
+        mysqli_stmt_execute($stmt);
+        return;
+    }
+
+    $commission = round($ctc * 0.20, 2);
+    $expenseDate = $p['dJoiningDate'] ?: substr($p['dCreatedAt'], 0, 10);
+    $description = 'Recruiter commission — ' . $recruiter . ' (20% of CTC)';
+
+    $stmt = mysqli_prepare($link, "SELECT iExpenseId FROM tblexpense WHERE iPlacementId = ? AND sExpenseType = 'Commission'");
+    mysqli_stmt_bind_param($stmt, "i", $placementId);
+    mysqli_stmt_execute($stmt);
+    $existing = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+
+    if ($existing) {
+        $stmt = mysqli_prepare($link, "UPDATE tblexpense SET sCategory='Recruiter Commission', dAmount=?, dExpenseDate=?, sDescription=?, dDeletedAt=NULL WHERE iExpenseId=?");
+        bindDynamic($stmt, [['d', $commission], ['s', $expenseDate], ['s', $description], ['i', $existing['iExpenseId']]]);
+        mysqli_stmt_execute($stmt);
+    } else {
+        $stmt = mysqli_prepare($link, "INSERT INTO tblexpense (sCategory, sExpenseType, iPlacementId, sDescription, dAmount, dExpenseDate) VALUES ('Recruiter Commission','Commission',?,?,?,?)");
+        bindDynamic($stmt, [['i', $placementId], ['s', $description], ['d', $commission], ['s', $expenseDate]]);
+        mysqli_stmt_execute($stmt);
+    }
 }
 
 // =====================================================================
@@ -805,9 +883,11 @@ if ($action === 'getcandidatebyid') {
 
 if ($action === 'checkcandidatemobile') {
     $mobile = reqStr($inputData, 'mobile');
+    $email = reqStr($inputData, 'email');
+    $email = $email ? mb_strtolower($email) : null;
     $excludeId = reqInt($inputData, 'excludeId', 0);
-    $exists = $mobile ? candidateMobileDuplicateExists($link, $mobile, $excludeId ?: null) : false;
-    sendResponse("success", "ok", ["exists" => $exists]);
+    $reason = ($mobile || $email) ? findCandidateDuplicateReason($link, $mobile, $email, $excludeId ?: null) : null;
+    sendResponse("success", "ok", ["exists" => $reason !== null, "reason" => $reason]);
 }
 
 if ($action === 'addcandidate' || $action === 'updatecandidate') {
@@ -818,49 +898,63 @@ if ($action === 'addcandidate' || $action === 'updatecandidate') {
     if ($action === 'updatecandidate' && !$id) sendResponse("error", "Invalid candidate id.");
 
     $mobile = reqStr($inputData, 'mobile');
+    $email = reqStr($inputData, 'email');
+    $email = $email ? mb_strtolower($email) : null;
+    $gender = reqStr($inputData, 'gender');
     $type = reqStr($inputData, 'type', 'NT');
     $type = in_array($type, ['T', 'NT'], true) ? $type : 'NT';
+    $appliedFor = reqStr($inputData, 'appliedFor');
     $education = reqStr($inputData, 'education');
     $experience = reqStr($inputData, 'experience');
     $currentCompany = reqStr($inputData, 'currentCompany');
+    $currentDesignation = reqStr($inputData, 'currentDesignation');
+    $currentCtc = reqStr($inputData, 'currentCtc');
+    $expectedCtc = reqStr($inputData, 'expectedCtc');
+    $noticePeriod = reqStr($inputData, 'noticePeriod');
+    $sourcedDate = reqStr($inputData, 'sourcedDate');
     $address = reqStr($inputData, 'address');
     $source = reqStr($inputData, 'source');
     $ref1 = reqStr($inputData, 'ref1');
     $ref2 = reqStr($inputData, 'ref2');
     $remark = reqStr($inputData, 'remark');
 
-    if ($mobile && candidateMobileDuplicateExists($link, $mobile, $id)) {
-        sendResponse("error", "A candidate with this mobile number already exists.");
-    }
+    $dupeReason = findCandidateDuplicateReason($link, $mobile, $email, $id);
+    if ($dupeReason) sendResponse("error", $dupeReason);
 
     if ($action === 'addcandidate') {
         $stmt = mysqli_prepare($link, "INSERT INTO tblcandidate
-            (sCandidateName, sMobile, sType, sEducation, sExperience, sCurrentCompany, sAddress, sSource, sRef1, sRef2, sRemark, iCreatedBy)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
+            (sCandidateName, sMobile, sEmail, sGender, sType, sAppliedFor, sEducation, sExperience, sCurrentCompany, sCurrentDesignation,
+             sCurrentCtc, sExpectedCtc, sNoticePeriod, dSourcedDate, sAddress, sSource, sRef1, sRef2, sRemark, iCreatedBy)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
         bindDynamic($stmt, [
-            ['s', $candidateName], ['s', $mobile], ['s', $type], ['s', $education], ['s', $experience],
-            ['s', $currentCompany], ['s', $address], ['s', $source], ['s', $ref1], ['s', $ref2], ['s', $remark], ['i', $currentUserId],
+            ['s', $candidateName], ['s', $mobile], ['s', $email], ['s', $gender], ['s', $type], ['s', $appliedFor],
+            ['s', $education], ['s', $experience], ['s', $currentCompany], ['s', $currentDesignation],
+            ['s', $currentCtc], ['s', $expectedCtc], ['s', $noticePeriod], ['s', $sourcedDate],
+            ['s', $address], ['s', $source], ['s', $ref1], ['s', $ref2], ['s', $remark], ['i', $currentUserId],
         ]);
         mysqli_stmt_execute($stmt);
         if (mysqli_stmt_errno($stmt)) {
             $msg = (mysqli_stmt_errno($stmt) === 1062)
-                ? "A candidate with this mobile number already exists."
+                ? "A candidate with this mobile number or email address already exists."
                 : "Could not save candidate. Please check the values entered.";
             sendResponse("error", $msg);
         }
         sendResponse("success", "Candidate added successfully.", ["id" => mysqli_insert_id($link)]);
     } else {
         $stmt = mysqli_prepare($link, "UPDATE tblcandidate SET
-            sCandidateName=?, sMobile=?, sType=?, sEducation=?, sExperience=?, sCurrentCompany=?, sAddress=?, sSource=?, sRef1=?, sRef2=?, sRemark=?
+            sCandidateName=?, sMobile=?, sEmail=?, sGender=?, sType=?, sAppliedFor=?, sEducation=?, sExperience=?, sCurrentCompany=?, sCurrentDesignation=?,
+            sCurrentCtc=?, sExpectedCtc=?, sNoticePeriod=?, dSourcedDate=?, sAddress=?, sSource=?, sRef1=?, sRef2=?, sRemark=?
             WHERE iCandidateId=?");
         bindDynamic($stmt, [
-            ['s', $candidateName], ['s', $mobile], ['s', $type], ['s', $education], ['s', $experience],
-            ['s', $currentCompany], ['s', $address], ['s', $source], ['s', $ref1], ['s', $ref2], ['s', $remark], ['i', $id],
+            ['s', $candidateName], ['s', $mobile], ['s', $email], ['s', $gender], ['s', $type], ['s', $appliedFor],
+            ['s', $education], ['s', $experience], ['s', $currentCompany], ['s', $currentDesignation],
+            ['s', $currentCtc], ['s', $expectedCtc], ['s', $noticePeriod], ['s', $sourcedDate],
+            ['s', $address], ['s', $source], ['s', $ref1], ['s', $ref2], ['s', $remark], ['i', $id],
         ]);
         mysqli_stmt_execute($stmt);
         if (mysqli_stmt_errno($stmt)) {
             $msg = (mysqli_stmt_errno($stmt) === 1062)
-                ? "A candidate with this mobile number already exists."
+                ? "A candidate with this mobile number or email address already exists."
                 : "Could not save candidate. Please check the values entered.";
             sendResponse("error", $msg);
         }
@@ -970,6 +1064,9 @@ if ($action === 'permanentlydeletecandidate') {
 // =====================================================================
 // BULK CANDIDATE IMPORT (Excel)
 // =====================================================================
+// Column set matches the recruiters' own working sheets (the format actually
+// shared across the team) rather than an invented one — see
+// migration_add_candidate_fields_2026_09_08.sql for the matching schema.
 if ($action === 'importcandidates') {
     if (empty($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
         sendResponse("error", "Please choose an Excel (.xlsx) file to upload.");
@@ -993,8 +1090,9 @@ if ($action === 'importcandidates') {
     }
 
     $expectedHeaders = [
-        'Candidate Name', 'Mobile Number', 'Type (T/NT)',
-        'Education', 'Experience', 'Current Company', 'Address', 'Source', 'Remark',
+        'Name', 'Mobile No', 'Email ID', 'Gender', 'Address', 'Education', 'Suitable For',
+        'Current Company', 'Designation', 'Experience', 'Current CTC', 'Expected CTC',
+        'Notice Period', 'Reference Number', 'Remark', 'Date Added (YYYY-MM-DD)',
     ];
     $headerRow = array_map(function ($h) { return trim((string) $h); }, $rows[0]);
     $colIndex = [];
@@ -1002,7 +1100,7 @@ if ($action === 'importcandidates') {
         $idx = array_search($name, $headerRow, true);
         $colIndex[$name] = ($idx === false) ? null : $idx;
     }
-    if ($colIndex['Candidate Name'] === null || $colIndex['Mobile Number'] === null) {
+    if ($colIndex['Name'] === null || $colIndex['Mobile No'] === null) {
         sendResponse("error", "This file doesn't match the candidate template. Please download the template and try again.");
     }
 
@@ -1021,8 +1119,15 @@ if ($action === 'importcandidates') {
     $mr = mysqli_query($link, "SELECT sMobile FROM tblcandidate WHERE sMobile IS NOT NULL AND sMobile <> ''");
     while ($mrow = mysqli_fetch_assoc($mr)) { $existingMobiles[$mrow['sMobile']] = true; }
 
+    $existingEmails = [];
+    $er = mysqli_query($link, "SELECT sEmail FROM tblcandidate WHERE sEmail IS NOT NULL AND sEmail <> ''");
+    while ($erow = mysqli_fetch_assoc($er)) { $existingEmails[$erow['sEmail']] = true; }
+
     $seenMobilesInFile = [];
+    $seenEmailsInFile = [];
     $validRows = [];
+    // Each entry: row, status ('duplicate'|'failed'), name, mobile, reasons[] —
+    // this doubles as the data behind the downloadable error report.
     $rowErrors = [];
     $emptyRowCount = 0;
     $duplicateCount = 0;
@@ -1034,47 +1139,70 @@ if ($action === 'importcandidates') {
         foreach ($row as $cell) { if (trim((string) $cell) !== '') { $allBlank = false; break; } }
         if ($allBlank) {
             $emptyRowCount++;
-            $rowErrors[] = ['row' => $excelRowNumber, 'errors' => ['Empty row — skipped.']];
-            continue;
+            continue; // not a real record either way — not counted as failed/duplicate
         }
 
         $errors = [];
-        $name = $getCell($row, 'Candidate Name');
-        if ($name === '') $errors[] = 'Candidate Name is required.';
+        $name = $getCell($row, 'Name');
+        if ($name === '') $errors[] = 'Name is required.';
 
-        $mobileRaw = $getCell($row, 'Mobile Number');
+        // Real sheets sometimes carry two numbers as "9876543210/9876500000" —
+        // take the first as the primary mobile rather than rejecting the row.
+        $mobileRaw = $getCell($row, 'Mobile No');
+        $mobileRaw = preg_split('/[\/,]/', $mobileRaw)[0] ?? '';
+        $mobileRaw = trim($mobileRaw);
+        if ($mobileRaw === '') $errors[] = 'Mobile No is required.';
+        elseif (!preg_match('/^[0-9+\-\s()]{6,20}$/', $mobileRaw)) $errors[] = 'Mobile No looks invalid.';
         $mobile = $mobileRaw !== '' ? $mobileRaw : null;
-        $isDuplicate = false;
-        if ($mobile !== null) {
-            if (!preg_match('/^[0-9+\-\s()]{6,20}$/', $mobile)) {
-                $errors[] = 'Mobile Number looks invalid.';
-            } elseif (isset($existingMobiles[$mobile])) {
-                $errors[] = 'A candidate with this mobile number already exists.';
-                $isDuplicate = true;
-            } elseif (isset($seenMobilesInFile[$mobile])) {
-                $errors[] = 'Duplicate mobile number — also appears in row ' . $seenMobilesInFile[$mobile] . ' of this file.';
-                $isDuplicate = true;
-            }
+
+        $emailRaw = $getCell($row, 'Email ID');
+        $email = $emailRaw !== '' ? mb_strtolower($emailRaw) : null;
+        if ($email !== null && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $errors[] = 'Email ID looks invalid.';
+            $email = null;
         }
 
-        $type = strtoupper($getCell($row, 'Type (T/NT)'));
-        if ($type === '') $type = 'NT';
-        if (!in_array($type, ['T', 'NT'], true)) { $errors[] = "Type must be T or NT (got '$type')."; }
+        $isDuplicate = false;
+        $dupeReasons = [];
+        if ($mobile !== null) {
+            if (isset($existingMobiles[$mobile])) { $dupeReasons[] = 'Mobile number already exists in the database.'; }
+            elseif (isset($seenMobilesInFile[$mobile])) { $dupeReasons[] = 'Mobile number also appears in row ' . $seenMobilesInFile[$mobile] . ' of this file.'; }
+        }
+        if ($email !== null) {
+            if (isset($existingEmails[$email])) { $dupeReasons[] = 'Email address already exists in the database.'; }
+            elseif (isset($seenEmailsInFile[$email])) { $dupeReasons[] = 'Email address also appears in row ' . $seenEmailsInFile[$email] . ' of this file.'; }
+        }
+        if (!empty($dupeReasons)) { $isDuplicate = true; }
 
+        $sourcedDateRaw = $getCell($row, 'Date Added (YYYY-MM-DD)');
+        $sourcedDate = null;
+        if ($sourcedDateRaw !== '') {
+            $sourcedDate = xlsx_parse_maybe_date($sourcedDateRaw);
+            if ($sourcedDate === null) { $errors[] = "Date Added '$sourcedDateRaw' is not a valid date."; }
+        }
+
+        if ($isDuplicate) {
+            $duplicateCount++;
+            $rowErrors[] = ['row' => $excelRowNumber, 'status' => 'duplicate', 'name' => $name, 'mobile' => $mobileRaw, 'reasons' => $dupeReasons];
+            continue;
+        }
         if (!empty($errors)) {
             $failedCount++;
-            if ($isDuplicate) $duplicateCount++;
-            $rowErrors[] = ['row' => $excelRowNumber, 'errors' => $errors];
+            $rowErrors[] = ['row' => $excelRowNumber, 'status' => 'failed', 'name' => $name, 'mobile' => $mobileRaw, 'reasons' => $errors];
             continue;
         }
 
         if ($mobile !== null) { $seenMobilesInFile[$mobile] = $excelRowNumber; }
+        if ($email !== null) { $seenEmailsInFile[$email] = $excelRowNumber; }
 
         $validRows[] = [
-            'candidateName' => $name, 'mobile' => $mobile, 'type' => $type,
-            'education' => $getCell($row, 'Education'), 'experience' => $getCell($row, 'Experience'),
-            'currentCompany' => $getCell($row, 'Current Company'), 'address' => $getCell($row, 'Address'),
-            'source' => $getCell($row, 'Source'), 'remark' => $getCell($row, 'Remark'),
+            'candidateName' => $name, 'mobile' => $mobile, 'email' => $email,
+            'gender' => $getCell($row, 'Gender'), 'address' => $getCell($row, 'Address'), 'education' => $getCell($row, 'Education'),
+            'appliedFor' => $getCell($row, 'Suitable For'), 'currentCompany' => $getCell($row, 'Current Company'),
+            'currentDesignation' => $getCell($row, 'Designation'), 'experience' => $getCell($row, 'Experience'),
+            'currentCtc' => $getCell($row, 'Current CTC'), 'expectedCtc' => $getCell($row, 'Expected CTC'),
+            'noticePeriod' => $getCell($row, 'Notice Period'), 'ref1' => $getCell($row, 'Reference Number'),
+            'remark' => $getCell($row, 'Remark'), 'sourcedDate' => $sourcedDate,
         ];
     }
 
@@ -1083,13 +1211,15 @@ if ($action === 'importcandidates') {
         mysqli_begin_transaction($link);
         try {
             $stmt = mysqli_prepare($link, "INSERT INTO tblcandidate
-                (sCandidateName, sMobile, sType, sEducation, sExperience, sCurrentCompany, sAddress, sSource, sRemark, iCreatedBy)
-                VALUES (?,?,?,?,?,?,?,?,?,?)");
+                (sCandidateName, sMobile, sEmail, sGender, sAppliedFor, sEducation, sExperience, sCurrentCompany, sCurrentDesignation,
+                 sCurrentCtc, sExpectedCtc, sNoticePeriod, dSourcedDate, sAddress, sRef1, sRemark, iCreatedBy)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
             foreach ($validRows as $vr) {
                 bindDynamic($stmt, [
-                    ['s', $vr['candidateName']], ['s', $vr['mobile']], ['s', $vr['type']],
-                    ['s', $vr['education']], ['s', $vr['experience']], ['s', $vr['currentCompany']], ['s', $vr['address']],
-                    ['s', $vr['source']], ['s', $vr['remark']], ['i', $currentUserId],
+                    ['s', $vr['candidateName']], ['s', $vr['mobile']], ['s', $vr['email']], ['s', $vr['gender']], ['s', $vr['appliedFor']],
+                    ['s', $vr['education']], ['s', $vr['experience']], ['s', $vr['currentCompany']], ['s', $vr['currentDesignation']],
+                    ['s', $vr['currentCtc']], ['s', $vr['expectedCtc']], ['s', $vr['noticePeriod']], ['s', $vr['sourcedDate']],
+                    ['s', $vr['address']], ['s', $vr['ref1']], ['s', $vr['remark']], ['i', $currentUserId],
                 ]);
                 if (!mysqli_stmt_execute($stmt)) {
                     throw new RuntimeException(mysqli_stmt_error($stmt));
@@ -1104,13 +1234,26 @@ if ($action === 'importcandidates') {
     }
 
     sendResponse("success", "Import complete.", [
-        "totalRows" => count($dataRows),
+        "totalRecords" => count($dataRows),
         "successCount" => $successCount,
-        "failedCount" => $failedCount,
         "duplicateCount" => $duplicateCount,
+        "failedCount" => $failedCount,
         "emptyRowCount" => $emptyRowCount,
         "rowErrors" => $rowErrors,
     ]);
+}
+
+// syncPlacementCommission only ever fires from the placement API actions —
+// a placement inserted directly via SQL (seed data, a manual import) never
+// triggers it. This resyncs every live placement in one pass; safe to run
+// any number of times since the sync itself is idempotent per placement.
+if ($action === 'resyncallcommissions') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $r = mysqli_query($link, "SELECT iPlacementId FROM tblplacement");
+    $ids = [];
+    while ($row = mysqli_fetch_assoc($r)) { $ids[] = (int) $row['iPlacementId']; }
+    foreach ($ids as $pid) { syncPlacementCommission($link, $pid); }
+    sendResponse("success", "Resynced commission records for " . count($ids) . " placement(s).");
 }
 
 // =====================================================================
@@ -1165,6 +1308,7 @@ if ($action === 'restoreplacement') {
     $stmt = mysqli_prepare($link, "UPDATE tblplacement SET dDeletedAt = NULL WHERE iPlacementId = ?");
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
+    syncPlacementCommission($link, $id);
     sendResponse("success", "Placement restored successfully.");
 }
 
@@ -1172,6 +1316,11 @@ if ($action === 'permanentlydeleteplacement') {
     if (!$isAdmin) sendResponse("error", "Not authorized.");
     $id = reqInt($inputData, 'id', 0);
     if (!$id) sendResponse("error", "Invalid placement id.");
+    // The FK's ON DELETE SET NULL is just a safety net — clean up the
+    // linked commission expense explicitly so it doesn't linger orphaned.
+    $stmt = mysqli_prepare($link, "DELETE FROM tblexpense WHERE iPlacementId = ? AND sExpenseType = 'Commission'");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
     $stmt = mysqli_prepare($link, "DELETE FROM tblplacement WHERE iPlacementId = ? AND dDeletedAt IS NOT NULL");
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
@@ -1251,7 +1400,9 @@ if ($action === 'addplacement' || $action === 'updateplacement') {
         ]);
         mysqli_stmt_execute($stmt);
         if (mysqli_stmt_errno($stmt)) sendResponse("error", "Could not save placement. Please check the values entered.");
-        sendResponse("success", "Placement added successfully.", ["selectionNo" => $selNo, "id" => mysqli_insert_id($link)]);
+        $newPlacementId = mysqli_insert_id($link);
+        syncPlacementCommission($link, $newPlacementId);
+        sendResponse("success", "Placement added successfully.", ["selectionNo" => $selNo, "id" => $newPlacementId]);
     } else {
         $stmt = mysqli_prepare($link, "UPDATE tblplacement SET
             iCandidateId=?, iReqId=?, sPost=?, iCompanyId=?, dSalary=?, dCtc=?, dJoiningDate=?, sJoiningStatus=?,
@@ -1268,6 +1419,7 @@ if ($action === 'addplacement' || $action === 'updateplacement') {
         ]);
         mysqli_stmt_execute($stmt);
         if (mysqli_stmt_errno($stmt)) sendResponse("error", "Could not save placement. Please check the values entered.");
+        syncPlacementCommission($link, $id);
         sendResponse("success", "Placement updated successfully.");
     }
 }
@@ -1281,6 +1433,8 @@ if ($action === 'deleteplacement') {
     $stmt = mysqli_prepare($link, "UPDATE tblplacement SET dDeletedAt = NOW() WHERE iPlacementId = ?");
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
+    // A trashed placement shouldn't still count toward commission expense/profit.
+    syncPlacementCommission($link, $id);
     sendResponse("success", "Placement moved to trash.");
 }
 
@@ -1678,6 +1832,308 @@ if ($action === 'deleteuser') {
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
     sendResponse("success", "User moved to trash.");
+}
+
+// =====================================================================
+// REVENUE & FINANCIAL — Admin only. Revenue itself is derived straight
+// from tblplacement.dRecAmount (same figure already used on the dashboard
+// and reports); Expenses is the one genuinely new dataset, and Profit is
+// simply Revenue - Expenses computed from those two real sources.
+// =====================================================================
+// Commission rows carry no candidate/company/CTC/invoice columns of their
+// own — those live on tblplacement and are joined in here for display.
+$expenseSelectSql = "SELECT e.*, cd.sCandidateName, c.sCompanyName, p.dCtc AS placementCtc,
+                             p.sInvoiceNo AS placementInvoiceNo, p.dInvoiceDate AS placementInvoiceDate, p.sWorkedBy AS recruiterName
+                      FROM tblexpense e
+                      LEFT JOIN tblplacement p ON p.iPlacementId = e.iPlacementId
+                      LEFT JOIN tblcandidate cd ON cd.iCandidateId = p.iCandidateId
+                      LEFT JOIN tblcompany c ON c.iCompanyId = p.iCompanyId";
+
+if ($action === 'fngetlistexpense') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $rows = [];
+    $r = mysqli_query($link, $expenseSelectSql . " WHERE e.dDeletedAt IS NULL ORDER BY e.dExpenseDate DESC, e.iExpenseId DESC");
+    while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
+    sendResponse("success", "ok", $rows);
+}
+
+if ($action === 'fngetlisttrashexpense') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $rows = [];
+    $r = mysqli_query($link, $expenseSelectSql . " WHERE e.dDeletedAt IS NOT NULL ORDER BY e.dDeletedAt DESC");
+    while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
+    sendResponse("success", "ok", $rows);
+}
+
+if ($action === 'getexpensebyid') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    $stmt = mysqli_prepare($link, $expenseSelectSql . " WHERE e.iExpenseId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    if ($row) sendResponse("success", "ok", $row);
+    sendResponse("error", "Expense not found.");
+}
+
+// Commission rows are auto-calculated from placement data (see
+// syncPlacementCommission) — this form only ever creates/edits 'Other'
+// expenses, regardless of what a client might post for type.
+if ($action === 'addexpense' || $action === 'updateexpense') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $category = reqStr($inputData, 'category');
+    $expenseDate = reqStr($inputData, 'expenseDate');
+    $amount = reqNum($inputData, 'amount', 0);
+    if (!$category) sendResponse("error", "Category is required.");
+    if (!$expenseDate) sendResponse("error", "Expense date is required.");
+    if ($amount <= 0) sendResponse("error", "Amount must be greater than zero.");
+
+    $description = reqStr($inputData, 'description');
+    $paymentMode = reqStr($inputData, 'paymentMode');
+    $remark = reqStr($inputData, 'remark');
+
+    if ($action === 'addexpense') {
+        $stmt = mysqli_prepare($link, "INSERT INTO tblexpense (sCategory, sExpenseType, sDescription, dAmount, dExpenseDate, sPaymentMode, sRemark, iCreatedBy) VALUES (?,'Other',?,?,?,?,?,?)");
+        bindDynamic($stmt, [
+            ['s', $category], ['s', $description], ['d', $amount], ['s', $expenseDate], ['s', $paymentMode], ['s', $remark], ['i', $currentUserId],
+        ]);
+        mysqli_stmt_execute($stmt);
+        if (mysqli_stmt_errno($stmt)) sendResponse("error", "Could not save expense. Please check the values entered.");
+        sendResponse("success", "Expense added successfully.", ["id" => mysqli_insert_id($link)]);
+    } else {
+        $id = reqInt($inputData, 'id', 0);
+        if (!$id) sendResponse("error", "Invalid expense id.");
+        $stmt = mysqli_prepare($link, "SELECT sExpenseType FROM tblexpense WHERE iExpenseId = ?");
+        mysqli_stmt_bind_param($stmt, "i", $id);
+        mysqli_stmt_execute($stmt);
+        $existing = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        if (!$existing) sendResponse("error", "Expense not found.");
+        if ($existing['sExpenseType'] === 'Commission') {
+            sendResponse("error", "Recruiter commission is calculated automatically from the placement and can't be edited directly. Edit the placement's CTC or recruiter instead.");
+        }
+        $stmt = mysqli_prepare($link, "UPDATE tblexpense SET sCategory=?, sDescription=?, dAmount=?, dExpenseDate=?, sPaymentMode=?, sRemark=? WHERE iExpenseId=?");
+        bindDynamic($stmt, [
+            ['s', $category], ['s', $description], ['d', $amount], ['s', $expenseDate], ['s', $paymentMode], ['s', $remark], ['i', $id],
+        ]);
+        mysqli_stmt_execute($stmt);
+        if (mysqli_stmt_errno($stmt)) sendResponse("error", "Could not save expense. Please check the values entered.");
+        sendResponse("success", "Expense updated successfully.");
+    }
+}
+
+if ($action === 'deleteexpense') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid expense id.");
+    $stmt = mysqli_prepare($link, "UPDATE tblexpense SET dDeletedAt = NOW() WHERE iExpenseId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Expense moved to trash.");
+}
+
+if ($action === 'restoreexpense') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid expense id.");
+    $stmt = mysqli_prepare($link, "UPDATE tblexpense SET dDeletedAt = NULL WHERE iExpenseId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Expense restored successfully.");
+}
+
+if ($action === 'permanentlydeleteexpense') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid expense id.");
+    $stmt = mysqli_prepare($link, "DELETE FROM tblexpense WHERE iExpenseId = ? AND dDeletedAt IS NOT NULL");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Expense permanently deleted.");
+}
+
+if ($action === 'getfinancialsummary') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+
+    $monthStart = date('Y-m-01');
+    $monthEnd = date('Y-m-t');
+
+    $r = mysqli_query($link, "SELECT COALESCE(SUM(dRecAmount),0) s FROM tblplacement WHERE dDeletedAt IS NULL");
+    $totalRevenue = (float) mysqli_fetch_assoc($r)['s'];
+
+    $r = mysqli_query($link, "SELECT COALESCE(SUM(dAmount),0) s FROM tblplacement WHERE dDeletedAt IS NULL");
+    $totalInvoiced = (float) mysqli_fetch_assoc($r)['s'];
+
+    $stmt = mysqli_prepare($link, "SELECT COALESCE(SUM(dRecAmount),0) s FROM tblplacement WHERE dDeletedAt IS NULL AND dPaymentRecDate BETWEEN ? AND ?");
+    mysqli_stmt_bind_param($stmt, "ss", $monthStart, $monthEnd);
+    mysqli_stmt_execute($stmt);
+    $monthRevenue = (float) mysqli_stmt_get_result($stmt)->fetch_assoc()['s'];
+
+    $r = mysqli_query($link, "SELECT COALESCE(SUM(dAmount),0) s FROM tblexpense WHERE dDeletedAt IS NULL");
+    $totalExpenses = (float) mysqli_fetch_assoc($r)['s'];
+
+    $stmt = mysqli_prepare($link, "SELECT COALESCE(SUM(dAmount),0) s FROM tblexpense WHERE dDeletedAt IS NULL AND dExpenseDate BETWEEN ? AND ?");
+    mysqli_stmt_bind_param($stmt, "ss", $monthStart, $monthEnd);
+    mysqli_stmt_execute($stmt);
+    $monthExpenses = (float) mysqli_stmt_get_result($stmt)->fetch_assoc()['s'];
+
+    // ---- Commission vs Other split (the two expense "types" the Expenses
+    // and Profit tabs both key off) ----
+    $r = mysqli_query($link, "SELECT COALESCE(SUM(dAmount),0) s FROM tblexpense WHERE dDeletedAt IS NULL AND sExpenseType = 'Commission'");
+    $totalCommission = (float) mysqli_fetch_assoc($r)['s'];
+    $totalOtherExpenses = round($totalExpenses - $totalCommission, 2);
+
+    $stmt = mysqli_prepare($link, "SELECT COALESCE(SUM(dAmount),0) s FROM tblexpense WHERE dDeletedAt IS NULL AND sExpenseType = 'Commission' AND dExpenseDate BETWEEN ? AND ?");
+    mysqli_stmt_bind_param($stmt, "ss", $monthStart, $monthEnd);
+    mysqli_stmt_execute($stmt);
+    $monthCommission = (float) mysqli_stmt_get_result($stmt)->fetch_assoc()['s'];
+    $monthOtherExpenses = round($monthExpenses - $monthCommission, 2);
+
+    $categoryBreakdown = [];
+    $r = mysqli_query($link, "SELECT sCategory, COALESCE(SUM(dAmount),0) amount, COUNT(*) c FROM tblexpense WHERE dDeletedAt IS NULL GROUP BY sCategory ORDER BY amount DESC");
+    while ($row = mysqli_fetch_assoc($r)) {
+        $categoryBreakdown[] = ['label' => $row['sCategory'], 'amount' => (float) $row['amount'], 'count' => (int) $row['c']];
+    }
+
+    // ---- 6-month trend: revenue, expenses, profit ----
+    $trendStart = date('Y-m-01', strtotime('-5 months'));
+    $monthly = [];
+    for ($i = 0; $i < 6; $i++) {
+        $ym = date('Y-m', strtotime("$trendStart +$i months"));
+        $monthly[$ym] = ['ym' => $ym, 'revenue' => 0, 'expenses' => 0, 'commission' => 0, 'other' => 0];
+    }
+    $r = mysqli_query($link, "SELECT DATE_FORMAT(dPaymentRecDate, '%Y-%m') ym, COALESCE(SUM(dRecAmount),0) s
+                               FROM tblplacement WHERE dDeletedAt IS NULL AND dPaymentRecDate >= '$trendStart' GROUP BY ym");
+    while ($row = mysqli_fetch_assoc($r)) { if (isset($monthly[$row['ym']])) $monthly[$row['ym']]['revenue'] = (float) $row['s']; }
+
+    $r = mysqli_query($link, "SELECT DATE_FORMAT(dExpenseDate, '%Y-%m') ym, sExpenseType, COALESCE(SUM(dAmount),0) s
+                               FROM tblexpense WHERE dDeletedAt IS NULL AND dExpenseDate >= '$trendStart' GROUP BY ym, sExpenseType");
+    while ($row = mysqli_fetch_assoc($r)) {
+        if (!isset($monthly[$row['ym']])) continue;
+        $monthly[$row['ym']]['expenses'] += (float) $row['s'];
+        if ($row['sExpenseType'] === 'Commission') { $monthly[$row['ym']]['commission'] += (float) $row['s']; }
+        else { $monthly[$row['ym']]['other'] += (float) $row['s']; }
+    }
+
+    foreach ($monthly as $ym => &$m) { $m['profit'] = round($m['revenue'] - $m['expenses'], 2); }
+    unset($m);
+
+    sendResponse("success", "ok", [
+        'revenue'  => ['total' => $totalRevenue, 'thisMonth' => $monthRevenue, 'totalInvoiced' => $totalInvoiced],
+        'expenses' => [
+            'total' => $totalExpenses, 'thisMonth' => $monthExpenses,
+            'totalCommission' => $totalCommission, 'monthCommission' => $monthCommission,
+            'totalOther' => $totalOtherExpenses, 'monthOther' => $monthOtherExpenses,
+            'byCategory' => $categoryBreakdown,
+        ],
+        'profit'   => ['total' => round($totalRevenue - $totalExpenses, 2), 'thisMonth' => round($monthRevenue - $monthExpenses, 2)],
+        'monthlyTrend' => array_values($monthly),
+    ]);
+}
+
+// =====================================================================
+// TAX INVOICES — Admin only. Company invoices are just tblplacement's own
+// invoice fields, surfaced as a dedicated list. Recruiter invoices are the
+// invoice-metadata columns on a Commission expense row (see
+// migration_add_recruiter_invoice_2026_09_10.sql) — the commission amount
+// itself stays owned by syncPlacementCommission().
+// =====================================================================
+if ($action === 'fngetlistcompanyinvoices') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $rows = [];
+    $r = mysqli_query($link, "SELECT p.iPlacementId, p.sSelectionNo, p.sInvoiceNo, p.dInvoiceDate, p.sPost, p.dCtc,
+                                      p.dCharges, p.dCgst, p.dSgst, p.dTotalGst, p.dAmount, p.dRecAmount, p.dPaymentRecDate, p.sPaymentMode,
+                                      cd.sCandidateName, c.sCompanyName
+                               FROM tblplacement p
+                               LEFT JOIN tblcandidate cd ON cd.iCandidateId = p.iCandidateId
+                               LEFT JOIN tblcompany c ON c.iCompanyId = p.iCompanyId
+                               WHERE p.dDeletedAt IS NULL AND p.sInvoiceNo IS NOT NULL AND p.sInvoiceNo <> ''
+                               ORDER BY p.dInvoiceDate DESC, p.iPlacementId DESC");
+    while ($row = mysqli_fetch_assoc($r)) {
+        $row['sPaymentStatus'] = ((float) $row['dRecAmount'] >= (float) $row['dAmount'] && (float) $row['dAmount'] > 0)
+            ? 'Paid' : (((float) $row['dRecAmount'] > 0) ? 'Partially Paid' : 'Unpaid');
+        $rows[] = $row;
+    }
+    sendResponse("success", "ok", $rows);
+}
+
+$recruiterInvoiceSelectSql = "SELECT e.*, cd.sCandidateName, c.sCompanyName, p.dCtc AS placementCtc, p.sPost, p.sWorkedBy AS recruiterName
+                               FROM tblexpense e
+                               LEFT JOIN tblplacement p ON p.iPlacementId = e.iPlacementId
+                               LEFT JOIN tblcandidate cd ON cd.iCandidateId = p.iCandidateId
+                               LEFT JOIN tblcompany c ON c.iCompanyId = p.iCompanyId
+                               WHERE e.dDeletedAt IS NULL AND e.sExpenseType = 'Commission'";
+
+if ($action === 'fngetlistrecruiterinvoices') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $rows = [];
+    $r = mysqli_query($link, $recruiterInvoiceSelectSql . " ORDER BY e.dExpenseDate DESC, e.iExpenseId DESC");
+    while ($row = mysqli_fetch_assoc($r)) {
+        if (!$row['sInvoiceNo']) {
+            $row['sPaymentStatus'] = 'Not Invoiced';
+        } else {
+            $total = (float) $row['dInvoiceAmount'];
+            $paid = (float) $row['dPaidAmount'];
+            $row['sPaymentStatus'] = ($total > 0 && $paid >= $total) ? 'Paid' : (($paid > 0) ? 'Partially Paid' : 'Unpaid');
+        }
+        $rows[] = $row;
+    }
+    sendResponse("success", "ok", $rows);
+}
+
+if ($action === 'getrecruiterinvoicebyid') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    $stmt = mysqli_prepare($link, $recruiterInvoiceSelectSql . " AND e.iExpenseId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    if ($row) sendResponse("success", "ok", $row);
+    sendResponse("error", "Recruiter invoice not found.");
+}
+
+// Only the invoice-metadata fields (invoice no/date, GST, paid amount,
+// payment date/mode) — the commission's own amount/date/description stay
+// exclusively under syncPlacementCommission()'s control.
+if ($action === 'updaterecruiterinvoice') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid invoice id.");
+
+    $stmt = mysqli_prepare($link, "SELECT dAmount, sExpenseType FROM tblexpense WHERE iExpenseId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $existing = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    if (!$existing) sendResponse("error", "Recruiter invoice not found.");
+    if ($existing['sExpenseType'] !== 'Commission') sendResponse("error", "Not a recruiter commission record.");
+
+    $invoiceNo = reqStr($inputData, 'invoiceNo');
+    $invoiceDate = reqStr($inputData, 'invoiceDate');
+    $gstPercent = reqNum($inputData, 'gstPercent', 0);
+    $paidAmount = reqNum($inputData, 'paidAmount', 0);
+    $paymentDate = reqStr($inputData, 'paymentDate');
+    $paymentMode = reqStr($inputData, 'paymentMode');
+
+    $baseAmount = (float) $existing['dAmount'];
+    $half = round($baseAmount * ($gstPercent / 2) / 100, 2);
+    $totalGst = round($half * 2, 2);
+    $invoiceAmount = round($baseAmount + $totalGst, 2);
+
+    $stmt = mysqli_prepare($link, "UPDATE tblexpense SET
+        sInvoiceNo=?, dInvoiceDate=?, dGstPercent=?, dCgst=?, dSgst=?, dTotalGst=?, dInvoiceAmount=?,
+        dPaidAmount=?, dPaymentDate=?, sPaymentMode=?
+        WHERE iExpenseId=?");
+    bindDynamic($stmt, [
+        ['s', $invoiceNo], ['s', $invoiceDate], ['d', $gstPercent], ['d', $half], ['d', $half], ['d', $totalGst], ['d', $invoiceAmount],
+        ['d', $paidAmount], ['s', $paymentDate], ['s', $paymentMode], ['i', $id],
+    ]);
+    mysqli_stmt_execute($stmt);
+    if (mysqli_stmt_errno($stmt)) {
+        $msg = (mysqli_stmt_errno($stmt) === 1062)
+            ? "That invoice number is already in use."
+            : "Could not save the invoice. Please check the values entered.";
+        sendResponse("error", $msg);
+    }
+    sendResponse("success", "Recruiter invoice saved successfully.");
 }
 
 // =====================================================================

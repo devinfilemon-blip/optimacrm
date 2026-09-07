@@ -29,7 +29,7 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                 </div>
 
                 <div class="row">
-                    <div class="col-xl-8">
+                    <div class="col-xl-12">
                         <div class="card">
                             <div class="card-body">
                                 <div><span id="message"></span></div>
@@ -44,12 +44,30 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                                     </div>
                                     <div class="col-md-4">
                                         <div class="mb-3">
-                                            <label class="form-label">Mobile No</label>
+                                            <label class="form-label">Mobile No *</label>
                                             <input type="text" class="form-control" id="mobile">
                                             <div id="mobileWarning" class="text-danger small mt-1"></div>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Email ID</label>
+                                            <input type="email" class="form-control" id="email">
+                                            <div id="emailWarning" class="text-danger small mt-1"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">Gender</label>
+                                            <select class="form-control" id="gender">
+                                                <option value="">-- Select --</option>
+                                                <option value="Male">Male</option>
+                                                <option value="Female">Female</option>
+                                                <option value="Other">Other</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
                                         <div class="mb-3">
                                             <label class="form-label">Type</label>
                                             <select class="form-control" id="type">
@@ -58,10 +76,28 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                                             </select>
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <div class="mb-3">
                                             <label class="form-label">Education</label>
                                             <select class="form-control" id="education"><option value="">-- Select Education --</option></select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">Suitable For</label>
+                                            <input type="text" class="form-control" id="appliedFor" placeholder="Post they're being considered for">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Current Company</label>
+                                            <input type="text" class="form-control" id="currentCompany">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Designation</label>
+                                            <input type="text" class="form-control" id="currentDesignation" placeholder="Current job title">
                                         </div>
                                     </div>
                                     <div class="col-md-4">
@@ -72,8 +108,20 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                                     </div>
                                     <div class="col-md-4">
                                         <div class="mb-3">
-                                            <label class="form-label">Current Company</label>
-                                            <input type="text" class="form-control" id="currentCompany">
+                                            <label class="form-label">Current CTC</label>
+                                            <input type="text" class="form-control" id="currentCtc" placeholder="e.g. 15k or 2.4 LPA">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Expected CTC</label>
+                                            <input type="text" class="form-control" id="expectedCtc" placeholder="e.g. 18k or 3 LPA">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Notice Period</label>
+                                            <input type="text" class="form-control" id="noticePeriod" placeholder="e.g. Immediate, 1 Month">
                                         </div>
                                     </div>
                                     <div class="col-md-8">
@@ -95,16 +143,16 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                                             <div id="resumeCurrent" class="form-text"></div>
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <div class="mb-3">
-                                            <label class="form-label">Reference 1</label>
+                                            <label class="form-label">Reference Number</label>
                                             <input type="text" class="form-control" id="ref1">
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
+                                    <div class="col-md-3">
                                         <div class="mb-3">
-                                            <label class="form-label">Reference 2</label>
-                                            <input type="text" class="form-control" id="ref2">
+                                            <label class="form-label">Date Added</label>
+                                            <input type="date" class="form-control" id="sourcedDate">
                                         </div>
                                     </div>
                                     <div class="col-md-12">
@@ -198,24 +246,33 @@ function loadSourceDropdown(selected) {
     });
 }
 
-function checkMobileDuplicate(cb) {
+function checkDuplicate(cb) {
     var mobile = document.getElementById('mobile').value.trim();
-    var warnEl = document.getElementById('mobileWarning');
-    if (!mobile) { warnEl.textContent = ''; cb(false); return; }
+    var email = document.getElementById('email').value.trim();
+    var mobileWarn = document.getElementById('mobileWarning');
+    var emailWarn = document.getElementById('emailWarning');
+    mobileWarn.textContent = '';
+    emailWarn.textContent = '';
+    if (!mobile && !email) { cb(false); return; }
     fetch('api.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'checkcandidatemobile', mobile: mobile, excludeId: editId })
+        body: JSON.stringify({ action: 'checkcandidatemobile', mobile: mobile, email: email, excludeId: editId })
     })
     .then(r => r.json())
     .then(res => {
         var dup = !!(res.data && res.data.exists);
-        warnEl.textContent = dup ? 'A candidate with this mobile number already exists.' : '';
+        var reason = (res.data && res.data.reason) || 'A candidate with this mobile number or email already exists.';
+        if (dup) {
+            if (reason.toLowerCase().indexOf('email') !== -1) emailWarn.textContent = reason;
+            else mobileWarn.textContent = reason;
+        }
         cb(dup);
     })
     .catch(function () { cb(false); });
 }
-document.getElementById('mobile').addEventListener('blur', function () { checkMobileDuplicate(function () {}); });
+document.getElementById('mobile').addEventListener('blur', function () { checkDuplicate(function () {}); });
+document.getElementById('email').addEventListener('blur', function () { checkDuplicate(function () {}); });
 
 function renderPlacements(list) {
     document.getElementById('placementsCard').style.display = '';
@@ -259,13 +316,21 @@ function loadCandidate() {
 
         document.getElementById('candidateName').value = d.sCandidateName || '';
         document.getElementById('mobile').value = d.sMobile || '';
+        document.getElementById('email').value = d.sEmail || '';
+        document.getElementById('gender').value = d.sGender || '';
+        crmRefreshSelect2(document.getElementById('gender'));
         document.getElementById('type').value = d.sType || 'NT';
         crmRefreshSelect2(document.getElementById('type'));
+        document.getElementById('appliedFor').value = d.sAppliedFor || '';
         document.getElementById('experience').value = d.sExperience || '';
         document.getElementById('currentCompany').value = d.sCurrentCompany || '';
+        document.getElementById('currentDesignation').value = d.sCurrentDesignation || '';
+        document.getElementById('currentCtc').value = d.sCurrentCtc || '';
+        document.getElementById('expectedCtc').value = d.sExpectedCtc || '';
+        document.getElementById('noticePeriod').value = d.sNoticePeriod || '';
+        document.getElementById('sourcedDate').value = d.dSourcedDate || '';
         document.getElementById('address').value = d.sAddress || '';
         document.getElementById('ref1').value = d.sRef1 || '';
-        document.getElementById('ref2').value = d.sRef2 || '';
         document.getElementById('remark').value = d.sRemark || '';
 
         renderResumeCurrent(d.sResumePath);
@@ -275,10 +340,12 @@ function loadCandidate() {
 
 function saveCandidate() {
     var candidateName = document.getElementById('candidateName').value.trim();
+    var mobile = document.getElementById('mobile').value.trim();
     if (!candidateName) { alert('Please enter the candidate name.'); return; }
+    if (!mobile) { alert('Please enter the mobile number.'); return; }
 
-    checkMobileDuplicate(function (isDuplicate) {
-        if (isDuplicate) { showMessage('A candidate with this mobile number already exists.', false); return; }
+    checkDuplicate(function (isDuplicate) {
+        if (isDuplicate) { showMessage('This candidate already exists — see the highlighted field above.', false); return; }
         doSaveCandidate(candidateName);
     });
 }
@@ -289,14 +356,21 @@ function doSaveCandidate(candidateName) {
         id: editId,
         candidateName: candidateName,
         mobile: document.getElementById('mobile').value,
+        email: document.getElementById('email').value,
+        gender: document.getElementById('gender').value,
         type: document.getElementById('type').value,
+        appliedFor: document.getElementById('appliedFor').value,
         education: document.getElementById('education').value,
         experience: document.getElementById('experience').value,
         currentCompany: document.getElementById('currentCompany').value,
+        currentDesignation: document.getElementById('currentDesignation').value,
+        currentCtc: document.getElementById('currentCtc').value,
+        expectedCtc: document.getElementById('expectedCtc').value,
+        noticePeriod: document.getElementById('noticePeriod').value,
+        sourcedDate: document.getElementById('sourcedDate').value,
         address: document.getElementById('address').value,
         source: document.getElementById('source').value,
         ref1: document.getElementById('ref1').value,
-        ref2: document.getElementById('ref2').value,
         remark: document.getElementById('remark').value
     };
 

@@ -19,6 +19,9 @@ function crmActive($scripts) {
 // collapsed. Compute it once so the parent + submenu both reflect where we are.
 $crmMastersScripts = ['list-status.php', 'list-source.php', 'list-post.php', 'list-education.php'];
 $crmMastersOpen = crmIsActive($crmMastersScripts);
+
+$crmTaxInvoiceScripts = ['list-company-invoice.php', 'list-recruiter-invoice.php', 'add-recruiter-invoice.php'];
+$crmTaxInvoiceOpen = crmIsActive($crmTaxInvoiceScripts);
 ?>
 <header id="page-topbar">
     <div class="navbar-header">
@@ -133,6 +136,25 @@ $crmMastersOpen = crmIsActive($crmMastersScripts);
                         <span>Reports</span>
                     </a>
                 </li>
+
+                <?php if ($crmIsAdmin) : ?>
+                <li>
+                    <a href="list-expense.php" class="waves-effect <?php echo crmActive(['list-expense.php', 'add-expense.php']); ?>">
+                        <i class="bx bx-wallet"></i>
+                        <span>Revenue &amp; Financial</span>
+                    </a>
+                </li>
+                <li class="<?php echo $crmTaxInvoiceOpen ? 'mm-active' : ''; ?>">
+                    <a href="javascript: void(0);" class="has-arrow waves-effect<?php echo $crmTaxInvoiceOpen ? ' mm-active' : ''; ?>">
+                        <i class="bx bx-receipt"></i>
+                        <span>Tax Invoices</span>
+                    </a>
+                    <ul class="sub-menu<?php echo $crmTaxInvoiceOpen ? ' mm-show' : ''; ?>" aria-expanded="<?php echo $crmTaxInvoiceOpen ? 'true' : 'false'; ?>">
+                        <li><a href="list-company-invoice.php" class="<?php echo crmActive('list-company-invoice.php'); ?>">Company Tax Invoice</a></li>
+                        <li><a href="list-recruiter-invoice.php" class="<?php echo crmActive(['list-recruiter-invoice.php', 'add-recruiter-invoice.php']); ?>">Recruiter Tax Invoice</a></li>
+                    </ul>
+                </li>
+                <?php endif; ?>
 
                 <?php if ($crmIsAdmin || $crmIsTeamLeader) : ?>
                 <li class="menu-title">Admin</li>

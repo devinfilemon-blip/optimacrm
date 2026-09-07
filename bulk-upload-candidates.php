@@ -34,10 +34,13 @@
 
                                 <h5 class="mb-2">1. Download the template</h5>
                                 <p class="text-muted mb-3">
-                                    Start from the standard template so your columns line up correctly.
-                                    <strong>Candidate Name</strong> and <strong>Mobile Number</strong> are required for every row;
-                                    the rest are optional. Mobile numbers must be unique — a row with a mobile number that
-                                    already exists (in the database, or earlier in the same file) will be rejected.
+                                    Start from the standard template so your columns line up correctly — it matches the
+                                    candidate sheet format already used across the team (Name, Mobile No, Email ID, Gender,
+                                    Address, Education, Suitable For, Current Company, Designation, Experience, Current CTC,
+                                    Expected CTC, Notice Period, Reference Number, Remark, Date Added).
+                                    <strong>Name</strong> and <strong>Mobile No</strong> are required for every row; the rest
+                                    are optional. A row whose mobile number or email address already exists — in the database,
+                                    or earlier in the same file — is skipped as a duplicate, never imported twice.
                                 </p>
                                 <a href="download-candidate-template.php" class="btn btn-outline-primary btn-sm mb-4">
                                     <i class="bx bx-download"></i> Download Excel Template
@@ -57,30 +60,36 @@
 
                         <div class="card" id="summaryCard" style="display:none;">
                             <div class="card-body">
-                                <h5 class="mb-3">Import Summary</h5>
-                                <div class="row text-center mb-3">
+                                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                                    <h5 class="mb-0">Import Summary</h5>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="downloadReportBtn" style="display:none;" onclick="downloadErrorReport();">
+                                        <i class="bx bx-download"></i> Download Failed/Duplicate Report
+                                    </button>
+                                </div>
+                                <div class="row text-center mb-2">
                                     <div class="col-6 col-md-3 mb-3">
                                         <div class="fs-3 fw-bold" id="sumTotal">0</div>
-                                        <div class="text-muted small">Total Rows</div>
+                                        <div class="text-muted small">Total Records</div>
                                     </div>
                                     <div class="col-6 col-md-3 mb-3">
                                         <div class="fs-3 fw-bold text-success" id="sumSuccess">0</div>
-                                        <div class="text-muted small">Imported</div>
-                                    </div>
-                                    <div class="col-6 col-md-3 mb-3">
-                                        <div class="fs-3 fw-bold text-danger" id="sumFailed">0</div>
-                                        <div class="text-muted small">Failed</div>
+                                        <div class="text-muted small">Successfully Added</div>
                                     </div>
                                     <div class="col-6 col-md-3 mb-3">
                                         <div class="fs-3 fw-bold text-warning" id="sumDuplicate">0</div>
-                                        <div class="text-muted small">Duplicates</div>
+                                        <div class="text-muted small">Duplicate Records</div>
+                                    </div>
+                                    <div class="col-6 col-md-3 mb-3">
+                                        <div class="fs-3 fw-bold text-danger" id="sumFailed">0</div>
+                                        <div class="text-muted small">Failed Records</div>
                                     </div>
                                 </div>
+                                <p class="text-muted small mb-3" id="emptyRowNote" style="display:none;"></p>
                                 <div id="rowErrorsWrap" style="display:none;">
-                                    <h6 class="mb-2">Row-wise Details</h6>
+                                    <h6 class="mb-2">Duplicate &amp; Failed Records</h6>
                                     <div class="table-responsive">
                                         <table class="table table-bordered table-sm">
-                                            <thead><tr><th style="width:80px;">Row #</th><th>Issue</th></tr></thead>
+                                            <thead><tr><th style="width:70px;">Row #</th><th>Name</th><th>Mobile</th><th style="width:110px;">Status</th><th>Reason</th></tr></thead>
                                             <tbody id="rowErrorsBody"></tbody>
                                         </table>
                                     </div>
@@ -139,23 +148,67 @@ function uploadCandidates() {
         });
 }
 
+var lastImportResult = null;
+
 function renderSummary(d) {
+    lastImportResult = d;
     document.getElementById('summaryCard').style.display = '';
-    document.getElementById('sumTotal').textContent = d.totalRows;
+    document.getElementById('sumTotal').textContent = d.totalRecords;
     document.getElementById('sumSuccess').textContent = d.successCount;
-    document.getElementById('sumFailed').textContent = d.failedCount;
     document.getElementById('sumDuplicate').textContent = d.duplicateCount;
+    document.getElementById('sumFailed').textContent = d.failedCount;
+
+    var emptyNote = document.getElementById('emptyRowNote');
+    if (d.emptyRowCount > 0) {
+        emptyNote.style.display = '';
+        emptyNote.textContent = d.emptyRowCount + ' blank row(s) in the file were skipped (not counted as failed or duplicate).';
+    } else {
+        emptyNote.style.display = 'none';
+    }
 
     var wrap = document.getElementById('rowErrorsWrap');
     var body = document.getElementById('rowErrorsBody');
+    var reportBtn = document.getElementById('downloadReportBtn');
     body.innerHTML = '';
     if (d.rowErrors && d.rowErrors.length) {
         wrap.style.display = '';
+        reportBtn.style.display = '';
         d.rowErrors.forEach(function (re) {
-            body.innerHTML += '<tr><td>' + re.row + '</td><td>' + esc(re.errors.join(' ')) + '</td></tr>';
+            var isDup = re.status === 'duplicate';
+            var badge = '<span class="optima-badge ' + (isDup ? 'optima-badge-hold' : 'optima-badge-refine') + '">' + (isDup ? 'Duplicate' : 'Failed') + '</span>';
+            body.innerHTML += '<tr><td>' + re.row + '</td><td>' + esc(re.name || '-') + '</td><td>' + esc(re.mobile || '-') + '</td><td>' + badge + '</td><td>' + esc((re.reasons || []).join(' ')) + '</td></tr>';
         });
     } else {
         wrap.style.display = 'none';
+        reportBtn.style.display = 'none';
     }
+}
+
+function csvEscape(s) {
+    s = s == null ? '' : String(s);
+    return '"' + s.replace(/"/g, '""') + '"';
+}
+
+function downloadErrorReport() {
+    if (!lastImportResult || !lastImportResult.rowErrors || !lastImportResult.rowErrors.length) return;
+    var lines = [['Row', 'Name', 'Mobile', 'Status', 'Reason'].map(csvEscape).join(',')];
+    lastImportResult.rowErrors.forEach(function (re) {
+        lines.push([
+            re.row,
+            re.name || '',
+            re.mobile || '',
+            re.status === 'duplicate' ? 'Duplicate' : 'Failed',
+            (re.reasons || []).join(' ')
+        ].map(csvEscape).join(','));
+    });
+    var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'candidate-import-errors.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 </script>
