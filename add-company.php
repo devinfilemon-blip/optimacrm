@@ -84,6 +84,13 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                                     </div>
                                     <div class="col-md-6">
                                         <div class="mb-3">
+                                            <label class="form-label">Agreement Percentage (%)</label>
+                                            <input type="number" step="0.01" min="0" max="100" class="form-control" id="agreementPercentage" placeholder="e.g. 8.33">
+                                            <div class="form-text">% of Annual CTC agreed as the placement fee — used to auto-fill invoice charges on a placement for this company.</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
                                             <label class="form-label">Status</label>
                                             <select class="form-control" id="companyStatusSelect">
                                                 <option value="Active">Active</option>
@@ -161,6 +168,7 @@ function loadCompany() {
         document.getElementById('googleLocation').value = d.sGoogleLocation || '';
         renderGoogleLocationLink();
         document.getElementById('gstin').value = d.sGstin || '';
+        document.getElementById('agreementPercentage').value = d.dAgreementPercentage || '';
         document.getElementById('companyStatusSelect').value = d.sStatus || 'Active';
         document.getElementById('address').value = d.sAddress || '';
         document.getElementById('notes').value = d.sNotes || '';
@@ -182,6 +190,7 @@ function saveCompany() {
         location: document.getElementById('location').value,
         googleLocation: document.getElementById('googleLocation').value,
         gstin: document.getElementById('gstin').value,
+        agreementPercentage: document.getElementById('agreementPercentage').value,
         status: document.getElementById('companyStatusSelect').value,
         address: document.getElementById('address').value,
         notes: document.getElementById('notes').value

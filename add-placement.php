@@ -78,6 +78,12 @@ $candidateId = isset($_GET['candidateId']) ? (int) $_GET['candidateId'] : 0;
                                     </div>
                                     <div class="col-md-3">
                                         <div class="mb-3">
+                                            <label class="form-label">Monthly Salary (₹)</label>
+                                            <input type="number" step="0.01" class="form-control" id="salary" placeholder="e.g. 18000">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
                                             <label class="form-label">Annual CTC (₹)</label>
                                             <input type="number" step="0.01" class="form-control" id="ctc" placeholder="e.g. 216000">
                                         </div>
@@ -133,6 +139,7 @@ $candidateId = isset($_GET['candidateId']) ? (int) $_GET['candidateId'] : 0;
                                         <div class="mb-3">
                                             <label class="form-label">Charges (base)</label>
                                             <input type="number" step="0.01" class="form-control gst-input" id="charges">
+                                            <div class="form-text" id="agreementPctHint"></div>
                                         </div>
                                     </div>
                                     <div class="col-md-3">
@@ -274,6 +281,8 @@ function loadCandidateDropdown(selected, cb) {
     });
 }
 
+var companyAgreementPctById = {};
+
 function loadCompanyDropdown(selected) {
     fetch('api.php', {
         method: 'POST',
@@ -284,15 +293,40 @@ function loadCompanyDropdown(selected) {
     .then(res => {
         var sel = document.getElementById('companyId');
         sel.innerHTML = '<option value="">-- Select Company --</option>';
+        companyAgreementPctById = {};
         (res.data || []).forEach(function (c) {
             var opt = document.createElement('option');
             opt.value = c.iCompanyId;
             opt.textContent = c.sCompanyName;
             if (selected && parseInt(selected) === parseInt(c.iCompanyId)) opt.selected = true;
             sel.appendChild(opt);
+            companyAgreementPctById[c.iCompanyId] = c.dAgreementPercentage;
         });
         crmRefreshSelect2(sel);
+        showAgreementPctHint();
     });
+}
+
+// Auto-fills Charges (base) from the selected company's agreed % of
+// Annual CTC, whenever the company or CTC changes — saves recomputing
+// it by hand on every placement. Only triggers on those two fields, so
+// a manual edit to Charges itself is never fought/overwritten.
+function showAgreementPctHint() {
+    var pct = companyAgreementPctById[document.getElementById('companyId').value];
+    var hint = document.getElementById('agreementPctHint');
+    hint.textContent = (pct !== undefined && pct !== null && pct !== '')
+        ? 'Auto-fills from ' + parseFloat(pct) + '% of Annual CTC for this company.'
+        : '';
+}
+
+function applyAgreementPercentage() {
+    showAgreementPctHint();
+    var pct = companyAgreementPctById[document.getElementById('companyId').value];
+    var ctc = parseFloat(document.getElementById('ctc').value) || 0;
+    if (pct === undefined || pct === null || pct === '' || ctc <= 0) return;
+    var charges = Math.round(ctc * (parseFloat(pct) / 100) * 100) / 100;
+    document.getElementById('charges').value = charges.toFixed(2);
+    recalcGst();
 }
 
 function loadRequirementDropdown(selected) {
@@ -365,6 +399,8 @@ document.getElementById('charges').addEventListener('input', recalcGst);
 // notifications through jQuery's event system, which a native
 // addEventListener('change', ...) listener never sees.
 $('#gstPercent').on('change', recalcGst);
+$('#companyId').on('change', applyAgreementPercentage);
+document.getElementById('ctc').addEventListener('input', applyAgreementPercentage);
 
 function loadPlacement() {
     loadCompanyDropdown(null);
@@ -390,6 +426,7 @@ function loadPlacement() {
         loadRequirementDropdown(d.iReqId);
 
         document.getElementById('post').value = d.sPost || '';
+        document.getElementById('salary').value = d.dSalary || '';
         document.getElementById('ctc').value = d.dCtc || '';
         document.getElementById('joiningDate').value = d.dJoiningDate || '';
         document.getElementById('joiningStatus').value = d.sJoiningStatus || 'Offer Accepted';
@@ -427,6 +464,7 @@ function savePlacement() {
         companyId: document.getElementById('companyId').value,
         reqId: document.getElementById('reqId').value,
         post: document.getElementById('post').value,
+        salary: document.getElementById('salary').value,
         ctc: document.getElementById('ctc').value,
         joiningDate: document.getElementById('joiningDate').value,
         joiningStatus: document.getElementById('joiningStatus').value,

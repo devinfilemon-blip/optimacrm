@@ -482,11 +482,6 @@ if ($action === 'dashboardStats') {
     }
     $stats['weeklyStatusBoard'] = ['days' => ['Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], 'dates' => $weekDates, 'rows' => $weeklyRows];
 
-    $leadSourceRows = [];
-    $r = mysqli_query($link, "SELECT sSource, COUNT(*) c FROM tblcandidate WHERE dDeletedAt IS NULL AND sSource IS NOT NULL AND sSource <> '' GROUP BY sSource ORDER BY c DESC");
-    while ($row = mysqli_fetch_assoc($r)) { $leadSourceRows[] = $row; }
-    $stats['leadSourceBreakdown'] = $leadSourceRows;
-
     $monthlyByYm = [];
     $r = mysqli_query($link, "SELECT DATE_FORMAT(dJoiningDate, '%Y-%m') ym, COUNT(*) placements, COALESCE(SUM(dRecAmount),0) received
                                FROM tblplacement
@@ -531,6 +526,33 @@ if ($action === 'dashboardStats') {
     sendResponse("success", "ok", $stats);
 }
 
+// Lead Source Breakdown — a separate lightweight action (not folded into
+// dashboardStats above) so the dashboard can flip between Monthly/Yearly
+// without refetching every other widget. dSourcedDate is an optional field
+// on the candidate form and is rarely filled in, so it falls back to
+// dCreatedAt (always set) when a candidate has no sourced date recorded.
+if ($action === 'leadSourceBreakdown') {
+    $period = reqStr($inputData, 'period', 'monthly');
+    if ($period === 'yearly') {
+        $start = date('Y-01-01');
+        $end = date('Y-12-31');
+    } else {
+        $period = 'monthly';
+        $start = date('Y-m-01');
+        $end = date('Y-m-t');
+    }
+    $stmt = mysqli_prepare($link, "SELECT sSource, COUNT(*) c FROM tblcandidate
+                                    WHERE dDeletedAt IS NULL AND sSource IS NOT NULL AND sSource <> ''
+                                    AND COALESCE(dSourcedDate, DATE(dCreatedAt)) BETWEEN ? AND ?
+                                    GROUP BY sSource ORDER BY c DESC");
+    bindDynamic($stmt, [['s', $start], ['s', $end]]);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+    $rows = [];
+    while ($row = mysqli_fetch_assoc($res)) { $row['c'] = (int) $row['c']; $rows[] = $row; }
+    sendResponse("success", "ok", ["period" => $period, "rows" => $rows]);
+}
+
 // =====================================================================
 // COMPANIES
 // =====================================================================
@@ -573,7 +595,7 @@ if ($action === 'permanentlydeletecompany') {
 
 if ($action === 'fngetcompanydropdown') {
     $rows = [];
-    $r = mysqli_query($link, "SELECT iCompanyId, sCompanyName FROM tblcompany WHERE sStatus='Active' AND dDeletedAt IS NULL ORDER BY sCompanyName ASC");
+    $r = mysqli_query($link, "SELECT iCompanyId, sCompanyName, dAgreementPercentage FROM tblcompany WHERE sStatus='Active' AND dDeletedAt IS NULL ORDER BY sCompanyName ASC");
     while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
     sendResponse("success", "ok", $rows);
 }
@@ -692,26 +714,27 @@ if ($action === 'addcompany' || $action === 'updatecompany') {
     $googleLocation = reqStr($inputData, 'googleLocation');
     $address = reqStr($inputData, 'address');
     $gstin = reqStr($inputData, 'gstin');
+    $agreementPercentage = reqNum($inputData, 'agreementPercentage', null);
     $status = reqStr($inputData, 'status', 'Active');
     $notes = reqStr($inputData, 'notes');
 
     if ($action === 'addcompany') {
         $stmt = mysqli_prepare($link, "INSERT INTO tblcompany
-            (sCompanyName, sContactPerson, sPhone, sEmail, sIndustry, sLocation, sGoogleLocation, sAddress, sGstin, sStatus, sNotes, iCreatedBy)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
+            (sCompanyName, sContactPerson, sPhone, sEmail, sIndustry, sLocation, sGoogleLocation, sAddress, sGstin, dAgreementPercentage, sStatus, sNotes, iCreatedBy)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)");
         bindDynamic($stmt, [
             ['s', $name], ['s', $contactPerson], ['s', $phone], ['s', $email], ['s', $industry], ['s', $location],
-            ['s', $googleLocation], ['s', $address], ['s', $gstin], ['s', $status], ['s', $notes], ['i', $currentUserId],
+            ['s', $googleLocation], ['s', $address], ['s', $gstin], ['d', $agreementPercentage], ['s', $status], ['s', $notes], ['i', $currentUserId],
         ]);
         mysqli_stmt_execute($stmt);
         sendResponse("success", "Company added successfully.");
     } else {
         $id = reqInt($inputData, 'id', 0);
         if (!$id) sendResponse("error", "Invalid company id.");
-        $stmt = mysqli_prepare($link, "UPDATE tblcompany SET sCompanyName=?, sContactPerson=?, sPhone=?, sEmail=?, sIndustry=?, sLocation=?, sGoogleLocation=?, sAddress=?, sGstin=?, sStatus=?, sNotes=? WHERE iCompanyId=?");
+        $stmt = mysqli_prepare($link, "UPDATE tblcompany SET sCompanyName=?, sContactPerson=?, sPhone=?, sEmail=?, sIndustry=?, sLocation=?, sGoogleLocation=?, sAddress=?, sGstin=?, dAgreementPercentage=?, sStatus=?, sNotes=? WHERE iCompanyId=?");
         bindDynamic($stmt, [
             ['s', $name], ['s', $contactPerson], ['s', $phone], ['s', $email], ['s', $industry], ['s', $location],
-            ['s', $googleLocation], ['s', $address], ['s', $gstin], ['s', $status], ['s', $notes], ['i', $id],
+            ['s', $googleLocation], ['s', $address], ['s', $gstin], ['d', $agreementPercentage], ['s', $status], ['s', $notes], ['i', $id],
         ]);
         mysqli_stmt_execute($stmt);
         sendResponse("success", "Company updated successfully.");
@@ -802,6 +825,7 @@ if ($action === 'addrequirement' || $action === 'updaterequirement') {
     $status = reqStr($inputData, 'status', 'Searching');
     $followupBy = reqStr($inputData, 'followupBy');
     $recruiter = reqStr($inputData, 'recruiter');
+    $vacancyOwner = reqStr($inputData, 'vacancyOwner');
     $remark = reqStr($inputData, 'remark');
 
     if ($action === 'addrequirement') {
@@ -810,12 +834,12 @@ if ($action === 'addrequirement' || $action === 'updaterequirement') {
         $reqNo = 'REQ-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
 
         $stmt = mysqli_prepare($link, "INSERT INTO tblrequirement
-            (sReqNo, iCompanyId, sPost, iNoOfVacancy, sType, sLocation, sEducation, sExperience, sSalary, dOpenDate, dFollowupDate, sRank, sStatus, sFollowupBy, sRecruiter, sRemark, iCreatedBy)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+            (sReqNo, iCompanyId, sPost, iNoOfVacancy, sType, sLocation, sEducation, sExperience, sSalary, dOpenDate, dFollowupDate, sRank, sStatus, sFollowupBy, sRecruiter, sVacancyOwner, sRemark, iCreatedBy)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
         bindDynamic($stmt, [
             ['s', $reqNo], ['i', $companyId], ['s', $post], ['i', $noOfVacancy], ['s', $type], ['s', $location],
             ['s', $education], ['s', $experience], ['s', $salary], ['s', $openDate], ['s', $followupDate],
-            ['s', $rank], ['s', $status], ['s', $followupBy], ['s', $recruiter], ['s', $remark], ['i', $currentUserId],
+            ['s', $rank], ['s', $status], ['s', $followupBy], ['s', $recruiter], ['s', $vacancyOwner], ['s', $remark], ['i', $currentUserId],
         ]);
         mysqli_stmt_execute($stmt);
         if (mysqli_stmt_errno($stmt)) sendResponse("error", "Could not save requirement. Please check the values entered.");
@@ -823,11 +847,11 @@ if ($action === 'addrequirement' || $action === 'updaterequirement') {
     } else {
         $id = reqInt($inputData, 'id', 0);
         if (!$id) sendResponse("error", "Invalid requirement id.");
-        $stmt = mysqli_prepare($link, "UPDATE tblrequirement SET iCompanyId=?, sPost=?, iNoOfVacancy=?, sType=?, sLocation=?, sEducation=?, sExperience=?, sSalary=?, dOpenDate=?, dFollowupDate=?, sRank=?, sStatus=?, sFollowupBy=?, sRecruiter=?, sRemark=? WHERE iReqId=?");
+        $stmt = mysqli_prepare($link, "UPDATE tblrequirement SET iCompanyId=?, sPost=?, iNoOfVacancy=?, sType=?, sLocation=?, sEducation=?, sExperience=?, sSalary=?, dOpenDate=?, dFollowupDate=?, sRank=?, sStatus=?, sFollowupBy=?, sRecruiter=?, sVacancyOwner=?, sRemark=? WHERE iReqId=?");
         bindDynamic($stmt, [
             ['i', $companyId], ['s', $post], ['i', $noOfVacancy], ['s', $type], ['s', $location],
             ['s', $education], ['s', $experience], ['s', $salary], ['s', $openDate], ['s', $followupDate],
-            ['s', $rank], ['s', $status], ['s', $followupBy], ['s', $recruiter], ['s', $remark], ['i', $id],
+            ['s', $rank], ['s', $status], ['s', $followupBy], ['s', $recruiter], ['s', $vacancyOwner], ['s', $remark], ['i', $id],
         ]);
         mysqli_stmt_execute($stmt);
         if (mysqli_stmt_errno($stmt)) sendResponse("error", "Could not save requirement. Please check the values entered.");
@@ -2235,6 +2259,15 @@ if ($action === 'deletesource') {
 if ($action === 'fngetlistrecruiter') {
     $rows = [];
     $r = mysqli_query($link, "SELECT iUserid, sName AS sRecruiter FROM tbluser WHERE sRole = 'Recruiter' AND sIs_active = 1 ORDER BY sName ASC");
+    while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
+    sendResponse("success", "ok", $rows);
+}
+
+// Vacancy Owner can be any active user (Admin or Recruiter) — unlike
+// fngetlistrecruiter above, not restricted to the Recruiter role.
+if ($action === 'fngetlistactiveuser') {
+    $rows = [];
+    $r = mysqli_query($link, "SELECT iUserid, sName FROM tbluser WHERE sIs_active = 1 AND dDeletedAt IS NULL ORDER BY sName ASC");
     while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
     sendResponse("success", "ok", $rows);
 }

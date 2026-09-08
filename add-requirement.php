@@ -133,6 +133,12 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
                                             <select class="form-control" id="recruiter"><option value="">Loading&hellip;</option></select>
                                         </div>
                                     </div>
+                                    <div class="col-md-3">
+                                        <div class="mb-3">
+                                            <label class="form-label">Vacancy Owner</label>
+                                            <select class="form-control" id="vacancyOwner"><option value="">Loading&hellip;</option></select>
+                                        </div>
+                                    </div>
                                     <div class="col-md-12">
                                         <div class="mb-3">
                                             <label class="form-label">Remark</label>
@@ -271,6 +277,35 @@ function loadRecruiterDropdown(selected) {
     });
 }
 
+function loadVacancyOwnerDropdown(selected) {
+    fetch('api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'fngetlistactiveuser' })
+    })
+    .then(r => r.json())
+    .then(res => {
+        var sel = document.getElementById('vacancyOwner');
+        sel.innerHTML = '<option value="">-- Select Vacancy Owner --</option>';
+        var found = false;
+        (res.data || []).forEach(function (u) {
+            var opt = document.createElement('option');
+            opt.value = u.sName;
+            opt.textContent = u.sName;
+            if (selected && selected === u.sName) { opt.selected = true; found = true; }
+            sel.appendChild(opt);
+        });
+        if (selected && !found) {
+            var opt = document.createElement('option');
+            opt.value = selected;
+            opt.textContent = selected + ' (inactive)';
+            opt.selected = true;
+            sel.appendChild(opt);
+        }
+        crmRefreshSelect2(sel);
+    });
+}
+
 function loadPostDropdown(selected) {
     return fetch('api.php', {
         method: 'POST',
@@ -389,6 +424,7 @@ function loadRequirement() {
     loadCompanyDropdown(null, function () {});
     loadStatusDropdown(null);
     loadRecruiterDropdown(null);
+    loadVacancyOwnerDropdown(null);
     loadPostDropdown(null);
     loadEducationDropdown(null);
 
@@ -405,6 +441,7 @@ function loadRequirement() {
         loadCompanyDropdown(d.iCompanyId);
         loadStatusDropdown(d.sStatus);
         loadRecruiterDropdown(d.sRecruiter);
+        loadVacancyOwnerDropdown(d.sVacancyOwner);
         loadPostDropdown(d.sPost);
         document.getElementById('noOfVacancy').value = d.iNoOfVacancy || 1;
         document.getElementById('type').value = d.sType || 'NT';
@@ -443,6 +480,7 @@ function saveRequirement() {
         status: document.getElementById('reqStatusSelect').value,
         followupBy: document.getElementById('followupBy').value,
         recruiter: document.getElementById('recruiter').value,
+        vacancyOwner: document.getElementById('vacancyOwner').value,
         remark: document.getElementById('remark').value
     };
 

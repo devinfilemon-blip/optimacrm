@@ -231,7 +231,13 @@
                     <div class="col-xl-6">
                         <div class="card optima-section-card h-100">
                             <div class="card-body">
-                                <h4 class="optima-section-title"><i class="bx bx-donate-heart"></i>Lead Source Breakdown</h4>
+                                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                    <h4 class="optima-section-title mb-0"><i class="bx bx-donate-heart"></i>Lead Source Breakdown</h4>
+                                    <select id="leadSourcePeriod" class="form-select form-select-sm" style="width: auto;">
+                                        <option value="monthly" selected>Monthly</option>
+                                        <option value="yearly">Yearly</option>
+                                    </select>
+                                </div>
                                 <div id="leadSourceChart">
                                     <p class="text-muted text-center mb-0 py-5">Loading&hellip;</p>
                                 </div>
@@ -351,7 +357,6 @@ function loadDashboard() {
 
         renderStatusBoard(d.weeklyStatusBoard);
         renderTrendChart(d.monthlyTrend || []);
-        renderLeadSourceChart(d.leadSourceBreakdown || []);
 
         var trendRows = '';
         (d.monthlyTrend || []).forEach(function (m) {
@@ -371,10 +376,10 @@ var OPTIMA_CHART_PALETTE = ['#5330c9', '#4d7bff', '#4fd2c0', '#f5a524', '#e0355b
 var trendChartInstance = null;
 var leadSourceChartInstance = null;
 
-function renderLeadSourceChart(rows) {
+function renderLeadSourceChart(rows, periodLabel) {
     var el = document.getElementById('leadSourceChart');
     if (!rows.length) {
-        el.innerHTML = '<p class="text-muted text-center mb-0 py-5">No source data yet</p>';
+        el.innerHTML = '<p class="text-muted text-center mb-0 py-5">No source data ' + periodLabel + '</p>';
         return;
     }
     el.innerHTML = '';
@@ -386,12 +391,28 @@ function renderLeadSourceChart(rows) {
         colors: OPTIMA_CHART_PALETTE,
         legend: { position: 'bottom', labels: { colors: isDarkTheme() ? '#cbd5e1' : '#5c5876' } },
         dataLabels: { enabled: true, formatter: function (val, opts) { return opts.w.config.series[opts.seriesIndex]; } },
-        plotOptions: { pie: { donut: { labels: { show: true, total: { show: true, label: 'Total Placements' } } } } }
+        plotOptions: { pie: { donut: { labels: { show: true, total: { show: true, label: 'Total Candidates' } } } } }
     };
 
     if (leadSourceChartInstance) { leadSourceChartInstance.destroy(); }
     leadSourceChartInstance = new ApexCharts(el, options);
     leadSourceChartInstance.render();
+}
+
+function loadLeadSourceChart() {
+    var period = document.getElementById('leadSourcePeriod').value;
+    fetch('api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'leadSourceBreakdown', period: period })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.status !== 'success') return;
+        var periodLabel = res.data.period === 'yearly' ? 'this year' : 'this month';
+        renderLeadSourceChart(res.data.rows || [], periodLabel);
+    })
+    .catch(() => {});
 }
 
 function renderStatusBoard(weekly) {
@@ -461,7 +482,10 @@ function renderTrendChart(rows) {
 
 $(document).ready(function () {
     loadDashboard();
-    window.addEventListener('crm-theme-changed', function () { loadDashboard(); });
+    loadLeadSourceChart();
+    window.addEventListener('crm-theme-changed', function () { loadDashboard(); loadLeadSourceChart(); });
+
+    $('#leadSourcePeriod').on('change', function () { loadLeadSourceChart(); });
 
     $(document).on('click', '.optima-card-clickable', function (e) {
         var href = $(this).data('href');

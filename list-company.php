@@ -34,6 +34,7 @@
                                 <th>Contact Person</th>
                                 <th>Phone</th>
                                 <th>Location</th>
+                                <th>Agreement %</th>
                                 <th id="reqCountHeader">Open Reqs</th>
                                 <th>Status</th>
                                 <th>Actions</th>
@@ -104,6 +105,7 @@ function fngetlistcompany() {
                         '<td>' + $('<div>').text(c.sContactPerson || '-').html() + '</td>' +
                         '<td>' + $('<div>').text(c.sPhone || '-').html() + '</td>' +
                         '<td>' + $('<div>').text(c.sLocation || '-').html() + mapPinLink(c.sGoogleLocation) + '</td>' +
+                        '<td>' + (c.dAgreementPercentage !== null && c.dAgreementPercentage !== '' ? parseFloat(c.dAgreementPercentage) + '%' : '-') + '</td>' +
                         '<td>' + (CRM_TRASH_MODE ? esc(c.dDeletedAt) : c.reqCount) + '</td>' +
                         '<td>' + statusBadge + '</td>' +
                         actions +
@@ -113,10 +115,10 @@ function fngetlistcompany() {
                 // A lone colspan "no records" row confuses DataTables' column
                 // auto-detection (it indexes cells off the first tbody row),
                 // so only initialize the table when there's real data to show.
-                $('#datatable tbody').html(rows || '<tr><td colspan="8">' + (CRM_TRASH_MODE ? 'Trash is empty' : 'No companies found') + '</td></tr>');
+                $('#datatable tbody').html(rows || '<tr><td colspan="9">' + (CRM_TRASH_MODE ? 'Trash is empty' : 'No companies found') + '</td></tr>');
                 if (rows) $('#datatable').DataTable();
             } else {
-                $('#datatable tbody').html('<tr><td colspan="8">No companies found</td></tr>');
+                $('#datatable tbody').html('<tr><td colspan="9">No companies found</td></tr>');
             }
         }
     });
@@ -178,13 +180,14 @@ if (!CRM_TRASH_MODE) {
             { cellIndex: 2, key: 'sContactPerson', type: 'text' },
             { cellIndex: 3, key: 'sPhone', type: 'text' },
             { cellIndex: 4, key: 'sLocation', type: 'text' },
-            { cellIndex: 6, key: 'sStatus', type: 'select', options: [{ value: 'Active', label: 'Active' }, { value: 'Inactive', label: 'Inactive' }] }
+            { cellIndex: 5, key: 'dAgreementPercentage', type: 'text' },
+            { cellIndex: 7, key: 'sStatus', type: 'select', options: [{ value: 'Active', label: 'Active' }, { value: 'Inactive', label: 'Inactive' }] }
         ],
         toPayload: function (merged, id) {
             return {
                 id: id, companyName: merged.sCompanyName, contactPerson: merged.sContactPerson, phone: merged.sPhone,
                 email: merged.sEmail, industry: merged.sIndustry, location: merged.sLocation, address: merged.sAddress,
-                gstin: merged.sGstin, status: merged.sStatus, notes: merged.sNotes
+                gstin: merged.sGstin, agreementPercentage: merged.dAgreementPercentage, status: merged.sStatus, notes: merged.sNotes
             };
         },
         saveAction: 'updatecompany',
