@@ -248,7 +248,18 @@ function renderTaxInvoicePdf($opts) {
     $pdf->SetY(max($declBottomY, $bankBottomY) + 12);
     $pdf->SetFont('Helvetica', 'B', 10);
     $pdf->Cell($pageW, 5, px('For ' . strtoupper(BILLER_NAME)), 0, 1, 'R');
-    $pdf->Ln(12);
+
+    // Company stamp overlaid in the gap above "Authorized Signatory" —
+    // right-aligned under the "For OPTIMA SERVICES" line, matching how the
+    // physical stamp is applied on a signed printout.
+    $stampPath = __DIR__ . '/' . BILLER_STAMP;
+    $stampSize = 28;
+    $gapH = 12;
+    if (is_file($stampPath)) {
+        $gapH = $stampSize + 4;
+        $pdf->Image($stampPath, 10 + $pageW - $stampSize - 20, $pdf->GetY() + 1, $stampSize, $stampSize);
+    }
+    $pdf->Ln($gapH);
     $pdf->SetFont('Helvetica', '', 9);
     $pdf->Cell($pageW, 5, px('Authorized Signatory'), 0, 1, 'R');
 

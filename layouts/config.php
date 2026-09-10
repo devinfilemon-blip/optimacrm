@@ -25,6 +25,12 @@ define('BILLER_BANK_BRANCH', 'Ichalkaranji');
 define('BILLER_BANK_IFSC', 'UBIN0537705');
 define('BILLER_PAYMENT_TERMS_DAYS', 8);
 define('BILLER_JURISDICTION', 'ICHALKARANJI');
+define('BILLER_STAMP', 'assets/images/optima-stamp.png');
+
+/* Signatory printed on generated Company Agreement documents */
+define('BILLER_SIGNATORY_SHORT_NAME', 'Amit');
+define('BILLER_SIGNATORY_NAME', 'Mr. Amit Badave');
+define('BILLER_SIGNATORY_DESIGNATION', 'Proprietor');
 
 // PHP 8.1+ made mysqli throw mysqli_sql_exception on error by default: every
 // mysqli_stmt_errno()/mysqli_connect_error() check already throughout this

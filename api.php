@@ -727,7 +727,7 @@ if ($action === 'addcompany' || $action === 'updatecompany') {
             ['s', $googleLocation], ['s', $address], ['s', $gstin], ['d', $agreementPercentage], ['s', $status], ['s', $notes], ['i', $currentUserId],
         ]);
         mysqli_stmt_execute($stmt);
-        sendResponse("success", "Company added successfully.");
+        sendResponse("success", "Company added successfully.", ["id" => mysqli_insert_id($link)]);
     } else {
         $id = reqInt($inputData, 'id', 0);
         if (!$id) sendResponse("error", "Invalid company id.");
@@ -748,6 +748,108 @@ if ($action === 'deletecompany') {
     mysqli_stmt_bind_param($stmt, "i", $id);
     mysqli_stmt_execute($stmt);
     sendResponse("success", "Company moved to trash.");
+}
+
+// =====================================================================
+// COMPANY AGREEMENTS — the commercial terms Optima has agreed with a
+// client company (see the Recruitment Agreement Proposal template):
+// % of CTC, GST, replacement guarantee window, payment/billing
+// deadlines, effective date. One row per company; status moves from
+// Pending to Completed once terms are finalized. Admin-only, same as
+// the other commercially-sensitive sections (Revenue, Tax Invoices).
+// =====================================================================
+if ($action === 'fngetlistcompanyagreement') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $rows = [];
+    $r = mysqli_query($link, "SELECT ca.*, c.sCompanyName
+                               FROM tblcompanyagreement ca
+                               JOIN tblcompany c ON c.iCompanyId = ca.iCompanyId
+                               ORDER BY ca.dUpdatedAt DESC");
+    while ($row = mysqli_fetch_assoc($r)) { $rows[] = $row; }
+    sendResponse("success", "ok", $rows);
+}
+
+if ($action === 'getcompanyagreementbyid') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    $stmt = mysqli_prepare($link, "SELECT ca.*, c.sCompanyName
+                                    FROM tblcompanyagreement ca
+                                    JOIN tblcompany c ON c.iCompanyId = ca.iCompanyId
+                                    WHERE ca.iAgreementId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+    if ($row) sendResponse("success", "ok", $row);
+    sendResponse("error", "Agreement not found.");
+}
+
+if ($action === 'addcompanyagreement' || $action === 'updatecompanyagreement') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $companyId = reqInt($inputData, 'companyId', 0);
+    if (!$companyId) sendResponse("error", "Please select a company.");
+    $ownerName = reqStr($inputData, 'ownerName');
+    $address = reqStr($inputData, 'address');
+    $status = reqStr($inputData, 'status', 'Pending');
+    $status = in_array($status, ['Pending', 'Completed'], true) ? $status : 'Pending';
+    $ctcPercentage = reqNum($inputData, 'ctcPercentage', null);
+    $govTax = reqNum($inputData, 'governmentTax', 18);
+    $replacementMonths = reqInt($inputData, 'replacementMonths', 3);
+    $paymentWithinDays = reqInt($inputData, 'paymentWithinDays', 15);
+    $billingWithinDays = reqInt($inputData, 'billingWithinDays', 8);
+    $effectiveDate = reqStr($inputData, 'effectiveDate');
+    $remark = reqStr($inputData, 'remark');
+
+    if ($action === 'addcompanyagreement') {
+        $chk = mysqli_prepare($link, "SELECT iAgreementId FROM tblcompanyagreement WHERE iCompanyId = ?");
+        mysqli_stmt_bind_param($chk, "i", $companyId);
+        mysqli_stmt_execute($chk);
+        if (mysqli_num_rows(mysqli_stmt_get_result($chk)) > 0) {
+            sendResponse("error", "This company already has an agreement — edit it instead.");
+        }
+        $stmt = mysqli_prepare($link, "INSERT INTO tblcompanyagreement
+            (iCompanyId, sOwnerName, sAddress, sStatus, dCtcPercentage, dGovernmentTax, iReplacementMonths, iPaymentWithinDays, iBillingWithinDays, dEffectiveDate, sRemark, iCreatedBy)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
+        bindDynamic($stmt, [
+            ['i', $companyId], ['s', $ownerName], ['s', $address], ['s', $status], ['d', $ctcPercentage], ['d', $govTax],
+            ['i', $replacementMonths], ['i', $paymentWithinDays], ['i', $billingWithinDays],
+            ['s', $effectiveDate], ['s', $remark], ['i', $currentUserId],
+        ]);
+        mysqli_stmt_execute($stmt);
+        if (mysqli_stmt_errno($stmt)) sendResponse("error", "Could not save agreement. Please check the values entered.");
+    } else {
+        $id = reqInt($inputData, 'id', 0);
+        if (!$id) sendResponse("error", "Invalid agreement id.");
+        $stmt = mysqli_prepare($link, "UPDATE tblcompanyagreement SET
+            sOwnerName=?, sAddress=?, sStatus=?, dCtcPercentage=?, dGovernmentTax=?, iReplacementMonths=?, iPaymentWithinDays=?, iBillingWithinDays=?, dEffectiveDate=?, sRemark=?
+            WHERE iAgreementId=?");
+        bindDynamic($stmt, [
+            ['s', $ownerName], ['s', $address], ['s', $status], ['d', $ctcPercentage], ['d', $govTax],
+            ['i', $replacementMonths], ['i', $paymentWithinDays], ['i', $billingWithinDays],
+            ['s', $effectiveDate], ['s', $remark], ['i', $id],
+        ]);
+        mysqli_stmt_execute($stmt);
+        if (mysqli_stmt_errno($stmt)) sendResponse("error", "Could not save agreement. Please check the values entered.");
+    }
+
+    // Keep the Company record's own % (used by Add Placement's invoice
+    // auto-calc) in sync once terms are finalized.
+    if ($status === 'Completed' && $ctcPercentage !== null) {
+        $syncStmt = mysqli_prepare($link, "UPDATE tblcompany SET dAgreementPercentage = ? WHERE iCompanyId = ?");
+        bindDynamic($syncStmt, [['d', $ctcPercentage], ['i', $companyId]]);
+        mysqli_stmt_execute($syncStmt);
+    }
+
+    sendResponse("success", $action === 'addcompanyagreement' ? "Agreement added successfully." : "Agreement updated successfully.");
+}
+
+if ($action === 'deletecompanyagreement') {
+    if (!$isAdmin) sendResponse("error", "Not authorized.");
+    $id = reqInt($inputData, 'id', 0);
+    if (!$id) sendResponse("error", "Invalid agreement id.");
+    $stmt = mysqli_prepare($link, "DELETE FROM tblcompanyagreement WHERE iAgreementId = ?");
+    mysqli_stmt_bind_param($stmt, "i", $id);
+    mysqli_stmt_execute($stmt);
+    sendResponse("success", "Agreement deleted successfully.");
 }
 
 // =====================================================================

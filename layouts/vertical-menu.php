@@ -139,6 +139,12 @@ $crmTaxInvoiceOpen = crmIsActive($crmTaxInvoiceScripts);
 
                 <?php if ($crmIsAdmin) : ?>
                 <li>
+                    <a href="list-company-agreement.php" class="waves-effect <?php echo crmActive(['list-company-agreement.php', 'add-company-agreement.php']); ?>">
+                        <i class="bx bx-check-shield"></i>
+                        <span>Company Agreements</span>
+                    </a>
+                </li>
+                <li>
                     <a href="list-expense.php" class="waves-effect <?php echo crmActive(['list-expense.php', 'add-expense.php']); ?>">
                         <i class="bx bx-wallet"></i>
                         <span>Revenue &amp; Financial</span>
